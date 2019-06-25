@@ -1,0 +1,6 @@
+.code_review_properties
+.cproject
+.project
+.settings/
+Debug/
+VFD-Clock.elf.launch

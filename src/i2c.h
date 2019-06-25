@@ -1,0 +1,37 @@
+/*
+ * i2c.h
+ *
+ *  Created on: Jun 15, 2019
+ *      Author: jack
+ */
+
+#ifndef I2C_H_
+#define I2C_H_
+
+void init_i2c(void);
+
+/* Send a start byte on the I2C1 line */
+void i2c_send_start(void);
+
+/* Send a stop byte on the I2C1 line */
+void i2c_send_stop(void);
+
+/* Send a byte on the I2C1 line */
+void i2c_send_byte(uint8_t byte);
+
+/* Wait for a byte of data to be avaiable then return that byte */
+uint8_t i2c_read_byte(void);
+
+/* Changes the slave address */
+void i2c_change_sadd(uint8_t addr);
+
+/* Changes NYBYTES, number of bytes to send */
+void i2c_change_nbytes(uint16_t num);
+
+/* have master request a write transfer */
+void i2c_set_tx_direction(void);
+
+/* have master request a read transfer */
+void i2c_set_rx_direction(void);
+
+#endif /* I2C_H_ */
