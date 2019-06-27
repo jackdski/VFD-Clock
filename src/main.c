@@ -153,6 +153,7 @@ void vApplicationIdleHook( void )
 {
     for( ;; ) {
     	// TODO: check that everything is in order, then put into low-power mode
+    	__WFI();
     }
 }
 /*-----------------------------------------------------------*/
