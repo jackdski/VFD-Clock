@@ -8,13 +8,6 @@
 #ifndef TUBES_H_
 #define TUBES_H_
 
-/*
- * tubes.c
- *
- *  Created on: Jun 14, 2019
- *      Author: jack
- */
-
 /* sets the SRCLK (Serial Clock) pin high */
 void srclk_high(void);
 

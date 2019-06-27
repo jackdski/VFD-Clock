@@ -8,6 +8,23 @@
 #ifndef ADC_H_
 #define ADC_H_
 
+//#define DEMO
+#define	MAX_ADC_READ			180
+
+#ifdef	DEMO
+#define	PHOTORESISTOR_LEFT		13	// PC3 - AF0, CH13
+#else
+#define		PHOTORESISTOR_LEFT		(6)	// PC6 - AF0, CH6
+#endif
+
+#define PHOTORESISTOR_RIGHT		7	// PA7 - AF0, CH7
+
+#define RANGE_THRESHOLD_1	5
+#define RANGE_THRESHOLD_2	20
+#define RANGE_THRESHOLD_3	40
+#define RANGE_THRESHOLD_4	70
+
+
 void init_adc(void);
 
 void calibrate_adc(void);
@@ -43,5 +60,15 @@ void select_adc_channel(uint8_t channel);
 /* inline function that returns the 16 bit value currently in
  * the ADC Data Register (ADC_DR) */
 uint32_t read_adc(void);
+
+/* sets the ADC Watchdog threshold register with values */
+void set_adc_watchdog_thresholds(uint32_t avg_light);
+
+/* returns 1 if old and new values are in different range, 0 if in same range */
+uint8_t in_diff_light_range(uint32_t old_value, uint32_t new_value);
+
+/* checks if the ADC values given are close enough to trust */
+uint8_t is_good_light_data(uint32_t sample_one, uint32_t sample_two);
+
 
 #endif /* ADC_H_ */

@@ -12,7 +12,4 @@ void init_usart(void);
 
 void uart_send_byte(uint8_t byte);
 
-/* receive a byte */
-void uart_read_byte(void);
-
 #endif /* USART_H_ */

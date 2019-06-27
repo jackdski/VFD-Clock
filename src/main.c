@@ -7,8 +7,10 @@
 #include "FreeRTOS.h"
 #include "task.h"
 #include "queue.h"
+#include "semphr.h"
 
 /*	A P P L I C A T I O N   I N C L U D E S   */
+#include "vfd_typedefs.h"
 #include "gpio.h"
 #include "clocks.h"
 #include "usart.h"
@@ -21,6 +23,16 @@
 /*	T A S K S   */
 #include "sensor_tasks.h"
 
+/*	Q U E U E S   */
+volatile QueueHandle_t BLE_Queue = NULL;		// cannot be static if used across multiple files
+
+/*	S E M A P H O R E S   */
+volatile SemaphoreHandle_t sRTC = NULL;
+
+/*	T A S K   N O T I F I C A T I O N S   */
+//volatile TaskHandle_t thRTC = NULL;
+//volatile TaskHandle_t thTubes = NULL;
+
 /*	F R E E R T O S   H O O K S   */
 void vApplicationMallocFailedHook( void );
 void vApplicationIdleHook( void );
@@ -30,76 +42,100 @@ void vApplicationTickHook( void);
 void *malloc( size_t xSize );
 
 /*	G L O B A L   V A R I A B L E S   */
-static uint8_t hours = 0;
-static uint8_t minutes = 0;
-static uint8_t seconds = 0;
+volatile System_State_E system_state = Clock;
 
-static uint8_t temperature;
+volatile uint8_t hours = 0;			/* 0-23 */
+volatile uint8_t minutes = 0;		/* 0-59 */
+volatile uint8_t seconds = 0;		/* 0-59 */
+volatile int8_t temperature = 0;	/* -128 - 127 */
 
-volatile uint32_t light_value = 0;
-
+volatile uint32_t light_value = 200;
+volatile uint16_t display_brightness = 100;
 volatile uint8_t usart_msg = 0;
-
-/*	Q U E U E S   */
-QueueHandle_t BLE_Queue = NULL;		// cannot be static if used across multiple files
 
 
 /*	M A I N   */
-int main(void)
-{
+int main(void) {
+	/* create queues */
+	BLE_Queue = xQueueCreate(20, 1);	// 20 items, each 1-bytes, enough space for 3 received messages
+
+	/* create semaphores */
+    sRTC = xSemaphoreCreateBinary();
+
+    if(sRTC == NULL) {
+		toggle_error_led();
+    	while(1);
+    }
+
+	/* initialize peripherals */
 	init_sysclock();
+//	init_rtc();
 	init_led();
 	init_buttons();
 	init_i2c();
 	init_usart();
 	configure_shift_pins();
+	init_dimming_timer();
 	init_pwm();
 	init_adc();
 
-	/* create all queues */
-	BLE_Queue = xQueueCreate(10, 8);	// 10 items, each 4-bytes
+	/* create tasks */
+    /* Priority 5 Tasks */
+//	BaseType_t rtcReturned = xTaskCreate(prvRTC_Task, "RTC", configMINIMAL_STACK_SIZE, NULL, 4, NULL);
+	// tubes task isn't needed, update_tubes() can be called from RTC task
+	BaseType_t tubesReturned = xTaskCreate( prvUpdateTubes, "UpdateTubes", configMINIMAL_STACK_SIZE, (void *)NULL, 4, NULL);
 
-	/* create all tasks */
-	BaseType_t tempReturned = xTaskCreate( prvTemperature_Task, "TempSensor", configMINIMAL_STACK_SIZE, NULL, 3, NULL);
-    BaseType_t blinkyReturned = xTaskCreate( prvBlink_LED, "Blinky", configMINIMAL_STACK_SIZE, (void *)NULL, 3, NULL);
-    BaseType_t tubesReturned = xTaskCreate( prvUpdateTubes, "UpdateTubes", configMINIMAL_STACK_SIZE, (void *)NULL, 5, NULL);
-    BaseType_t BLEreturned = xTaskCreate( prvBLE_Update_Task, "BLE", configMINIMAL_STACK_SIZE, (void *)NULL, 3, NULL);
-    BaseType_t PWMreturned = xTaskCreate( prvChangePWM, "PWM", configMINIMAL_STACK_SIZE, (void *)NULL, 5, NULL);
-    BaseType_t Lightreturned = xTaskCreate( prvLight_Task, "LightSensor", configMINIMAL_STACK_SIZE, (void *)NULL, 4, NULL);
+	/* Priority 4 Tasks */
+//	BaseType_t PWMreturned = xTaskCreate( prvChangePWM, "PWM Change", configMINIMAL_STACK_SIZE, (void *)NULL, 5, NULL);
+	BaseType_t Lightreturned = xTaskCreate( prvLight_Task, "LightSensor", configMINIMAL_STACK_SIZE, (void *)NULL, 4, NULL);
 
+	/* Priority 3 Tasks */
+//	BaseType_t tempReturned = xTaskCreate( prvTemperature_Task, "TempSensor", configMINIMAL_STACK_SIZE, NULL, 3, NULL);
+	BaseType_t BLERXreturned = xTaskCreate( prvBLE_Receive_Task, "BLE RX", configMINIMAL_STACK_SIZE, (void *)NULL, 3, NULL);
+	BaseType_t BLETXreturned = xTaskCreate( prvBLE_Send_Task, "BLE TX", configMINIMAL_STACK_SIZE, (void *)NULL, 3, NULL);
 
-    if(tempReturned != pdPASS) {
-    	toggle_led();
-    	while(1);
-    }
+	/* Priority 2 Tasks */
 
-    if(blinkyReturned != pdPASS) {
-    	toggle_led();
-    	while(1);
-    }
-
-    if(tubesReturned != pdPASS) {
-    	toggle_led();
-    	while(1);
-    }
-
-    if(BLEreturned != pdPASS) {
-    	toggle_led();
-    	while(1);
-    }
-
-    if(PWMreturned != pdPASS) {
-    	toggle_led();
-    	while(1);
-    }
-
-    if(Lightreturned != pdPASS) {
-    	toggle_led();
-    	while(1);
-    }
+	/* Priority 1 Tasks*/
+	BaseType_t blinkyReturned = xTaskCreate( prvBlink_LED, "Blinky", configMINIMAL_STACK_SIZE, (void *)NULL, 2, NULL);
 
 
-	SysTick_Config(60000);		// initialize SysTick timer to 10ms ticks
+	/* check that tasks were created successfully */
+//	if(rtcReturned != pdPASS) {
+//		toggle_error_led();
+//		while(1);
+//	}
+//
+//    if(tempReturned != pdPASS) {
+//		toggle_error_led();
+//    	while(1);
+//    }
+//
+//    if(blinkyReturned != pdPASS) {
+//		toggle_error_led();
+//    	while(1);
+//    }
+//
+//    if(BLERXreturned != pdPASS) {
+//		toggle_error_led();
+//    	while(1);
+//    }
+//
+//    if(BLETXreturned != pdPASS) {
+//		toggle_error_led();
+//    	while(1);
+//    }
+//
+//    if(Lightreturned != pdPASS) {
+//		toggle_error_led();
+//    	while(1);
+//    }
+
+
+    /* initialize SysTick timer to 10ms ticks */
+    SysTick_Config(60000);
+
+    /* TODO: check on/off switch position before starting scheduler */
 
     /* start scheduler */
     vTaskStartScheduler();
@@ -108,16 +144,6 @@ int main(void)
 
 void vApplicationMallocFailedHook( void )
 {
-    /* vApplicationMallocFailedHook() will only be called if
-    configUSE_MALLOC_FAILED_HOOK is set to 1 in FreeRTOSConfig.h.  It is a hook
-    function that will get called if a call to pvPortMalloc() fails.
-    pvPortMalloc() is called internally by the kernel whenever a task, queue,
-    timer or semaphore is created.  It is also called by various parts of the
-    demo application.  If heap_1.c or heap_2.c are used, then the size of the
-    heap available to pvPortMalloc() is defined by configTOTAL_HEAP_SIZE in
-    FreeRTOSConfig.h, and the xPortGetFreeHeapSize() API function can be used
-    to query the size of free heap space that remains (although it does not
-    provide information on how the remaining heap might be fragmented). */
     taskDISABLE_INTERRUPTS();
     for( ;; );
 }
@@ -125,16 +151,9 @@ void vApplicationMallocFailedHook( void )
 
 void vApplicationIdleHook( void )
 {
-    /* vApplicationIdleHook() will only be called if configUSE_IDLE_HOOK is set
-    to 1 in FreeRTOSConfig.h.  It will be called on each iteration of the idle
-    task.  It is essential that code added to this hook function never attempts
-    to block in any way (for example, call xQueueReceive() with a block time
-    specified, or call vTaskDelay()).  If the application makes use of the
-    vTaskDelete() API function (as this demo application does) then it is also
-    important that vApplicationIdleHook() is permitted to return to its calling
-    function, because it is the responsibility of the idle task to clean up
-    memory allocated by the kernel to any task that has since been deleted. */
-    for( ;; );
+    for( ;; ) {
+    	// TODO: check that everything is in order, then put into low-power mode
+    }
 }
 /*-----------------------------------------------------------*/
 
@@ -142,10 +161,6 @@ void vApplicationStackOverflowHook( TaskHandle_t pxTask, char *pcTaskName )
 {
     ( void ) pcTaskName;
     ( void ) pxTask;
-
-    /* Run time stack overflow checking is performed if
-    configCHECK_FOR_STACK_OVERFLOW is defined to 1 or 2.  This hook
-    function is called if a stack overflow is detected. */
     taskDISABLE_INTERRUPTS();
     for( ;; );
 }
@@ -160,8 +175,5 @@ void vApplicationTickHook( void) {
 
 void *malloc( size_t xSize )
 {
-    /* There should not be a heap defined, so trap any attempts to call
-    malloc. */
-//    Interrupt_disableMaster();
     for( ;; );
 }

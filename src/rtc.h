@@ -19,7 +19,7 @@ uint8_t read_rtc_hours(void);
 
 uint8_t read_rtc_minutes(void);
 
-uint8_t read_rtc_hours(void);
+uint8_t read_rtc_seconds(void);
 
 void change_rtc_hours(uint8_t new_hours);
 

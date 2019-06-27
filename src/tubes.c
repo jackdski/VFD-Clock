@@ -12,13 +12,23 @@
 /*	F R E E R T O S   I N C L U D E S   */
 #include "FreeRTOS.h"
 #include "task.h"
+#include "queue.h"
+#include "semphr.h"
 
 /*	A P P L I C A T I O N   I N C L U D E S   */
 #include "gpio.h"
+#include "vfd_typedefs.h"
 #include "tubes.h"
 
+/*	G L O B A L   V A R I A B L E S   */
+extern System_State_E system_state;
+extern uint8_t hour;			/* 0-23 */
+extern uint8_t minutes;			/* 0-59 */
+extern uint8_t seconds;			/* 0-59 */
+extern int8_t temperature;		/* -128 - 127 */
+
 /*	D E F I N E S   */
-#define	TUBE_TESTING		// uncomment to only output 0xAA on tubes
+#define	TUBE_TESTING		// only outputs 0xAA on tubes
 
 /* Binary values that will display the corresponding
  * numbers on the seven segment displays after being
@@ -38,72 +48,116 @@
 
 #define ALL_TUBES	7
 
+/* pinout */
+#define NOE			8	// PA8 (PWM on Pin PA4)
+#define NSRCLR		11	// PA11
+#define SRCLK		9	// PC9
+#define RCLK		8	// PC8
+#define SERIAL1		7	// PC7
+#define SERIAL2		6	// PC6
+#define SERIAL3		15	// PB15
+#define SERIAL4		14	// PB14
+#define SERIAL5		13	// PB13
+#define SERIAL6		12	// PB12
+
+
+/* Configures the shift registers to be used */
+void configure_shift_pins() {
+	/* AHB Peripheral Clock Enable Registers */
+	RCC->AHBENR =	( RCC_AHBENR_GPIOAEN | RCC_AHBENR_GPIOBEN | RCC_AHBENR_GPIOCEN);
+
+	/* set to LOW */
+	GPIOA->ODR &= ~(GPIO_ODR_8 | GPIO_ODR_11);
+	GPIOB->ODR &= ~(GPIO_ODR_12 | GPIO_ODR_13 | GPIO_ODR_14 | GPIO_ODR_15);
+	GPIOC->ODR &= ~(GPIO_ODR_6 | GPIO_ODR_7 | GPIO_ODR_8 | GPIO_ODR_9);
+
+	/* set to output */
+	GPIOA->MODER |= (GPIO_MODER_MODER8_0 | GPIO_MODER_MODER11_0);
+	GPIOB->MODER |= (GPIO_MODER_MODER12_0 | GPIO_MODER_MODER13_0 | GPIO_MODER_MODER14_0 | GPIO_MODER_MODER15_0);
+	GPIOC->MODER |= (GPIO_MODER_MODER6_0 | GPIO_MODER_MODER7_0 | GPIO_MODER_MODER8_0 | GPIO_MODER_MODER9_0);
+
+	/* set to push pull */
+	GPIOA->OTYPER &= ~(GPIO_OTYPER_OT_8 | GPIO_OTYPER_OT_11);
+	GPIOB->OTYPER &= ~(GPIO_OTYPER_OT_12 | GPIO_OTYPER_OT_13 | GPIO_OTYPER_OT_14 | GPIO_OTYPER_OT_15);
+	GPIOC->OTYPER &= ~(GPIO_OTYPER_OT_6 | GPIO_OTYPER_OT_7 | GPIO_OTYPER_OT_8 | GPIO_OTYPER_OT_9);
+
+	/* set to mid-speed */
+	GPIOA->OSPEEDR |= (GPIO_OSPEEDR_OSPEEDR8_0 | GPIO_OSPEEDR_OSPEEDR11_0);
+	GPIOB->OSPEEDR |= (GPIO_OSPEEDR_OSPEEDR12_0 | GPIO_OSPEEDR_OSPEEDR13_0
+					 | GPIO_OSPEEDR_OSPEEDR14_0 | GPIO_OSPEEDR_OSPEEDR15_0);
+	GPIOC->OSPEEDR |= (GPIO_OSPEEDR_OSPEEDR6_0 | GPIO_OSPEEDR_OSPEEDR7_0
+					 | GPIO_OSPEEDR_OSPEEDR8_0 | GPIO_OSPEEDR_OSPEEDR9_0);
+}
+
 /* sets the SRCLK (Serial Clock) pin high */
 void srclk_high(void) {
-	GPIOC->ODR |= (GPIO_ODR_4);
+	GPIOC->ODR |= (1 << SRCLK);
 }
 
 /* sets the SRCLK (Serial Clock) pin low */
 void srclk_low(void) {
-	GPIOC->ODR &= ~(GPIO_ODR_4);
+	GPIOC->ODR &= ~(1 << SRCLK);
 }
 
 /* sets the !SRCLR (!Serial Clear) pin high */
 void srclr_latch_high(void) {
-	GPIOB->ODR |= (GPIO_ODR_14);
+	GPIOA->ODR |= (1 << NSRCLR);
 }
 
 /* sets the !SRCLR (!Serial Clear) pin low */
 void srclr_latch_low(void) {
-	GPIOB->ODR &= ~(GPIO_ODR_14);
+	GPIOA->ODR &= ~(1 << NSRCLR);
 }
 
 /* sets the RCLK (Register Clock) pin high */
 void rclk_high(void) {
-	GPIOB->ODR |= (GPIO_ODR_13);
+	GPIOC->ODR |= (1 << RCLK);
 }
 
 /* sets the RCLK (Register Clock) pin high */
 void rclk_low(void) {
-	GPIOB->ODR &= ~(GPIO_ODR_13);
+	GPIOC->ODR &= ~(1 << RCLK);
 }
 
 /* 1-6 for select tubes, 7 for all */
 void disable_output(uint8_t target) {
-    if(target == 7) {
-        GPIOB->ODR |= (GPIO_ODR_3 | GPIO_ODR_4 | GPIO_ODR_5);
-        GPIOA->ODR |= (GPIO_ODR_2 | GPIO_ODR_3 | GPIO_ODR_10);
-    }
-    else {
-        switch(target) {
-            case 1: GPIOB->ODR |= (GPIO_ODR_4); break;
-            case 2: GPIOB->ODR |= (GPIO_ODR_5); break;
-            case 3: GPIOB->ODR |= (GPIO_ODR_3); break;
-            case 4: GPIOA->ODR |= (GPIO_ODR_10); break;
-            case 5: GPIOA->ODR |= (GPIO_ODR_2); break;
-            case 6: GPIOA->ODR |= (GPIO_ODR_3); break;
-            default: break;
-        }
-    }
+	/* Obsolete */
+//    if(target == 7) {
+//    	// set all SERIAL pins high
+//        GPIOB->ODR |= (GPIO_ODR_3 | GPIO_ODR_4 | GPIO_ODR_5);
+//        GPIOA->ODR |= (GPIO_ODR_2 | GPIO_ODR_3 | GPIO_ODR_10);
+//    }
+//    else {
+//        switch(target) {
+//            case 1: GPIOB->ODR |= (GPIO_ODR_4); break;
+//            case 2: GPIOB->ODR |= (GPIO_ODR_5); break;
+//            case 3: GPIOB->ODR |= (GPIO_ODR_3); break;
+//            case 4: GPIOA->ODR |= (GPIO_ODR_10); break;
+//            case 5: GPIOA->ODR |= (GPIO_ODR_2); break;
+//            case 6: GPIOA->ODR |= (GPIO_ODR_3); break;
+//            default: break;
+//        }
+//    }
 }
 
 /* Enable the output from the shift register */
 void enable_output(uint8_t tube) {
-    if(tube == 7) {
-        GPIOB->ODR &= ~(GPIO_ODR_3 | GPIO_ODR_4 | GPIO_ODR_5);
-        GPIOA->ODR &= ~(GPIO_ODR_2 | GPIO_ODR_3 | GPIO_ODR_10);
-    }
-    else {
-        switch(tube) {
-			case 1: GPIOB->ODR &= ~(GPIO_ODR_4); break;
-			case 2: GPIOB->ODR &= ~(GPIO_ODR_5); break;
-			case 3: GPIOB->ODR &= ~(GPIO_ODR_3); break;
-			case 4: GPIOA->ODR &= ~(GPIO_ODR_10); break;
-			case 5: GPIOA->ODR &= ~(GPIO_ODR_2); break;
-			case 6: GPIOA->ODR &= ~(GPIO_ODR_3); break;
-            default: break;
-        }
-    }
+	/* Obsolete */
+//    if(tube == 7) {
+//        GPIOB->ODR &= ~(GPIO_ODR_3 | GPIO_ODR_4 | GPIO_ODR_5);
+//        GPIOA->ODR &= ~(GPIO_ODR_2 | GPIO_ODR_3 | GPIO_ODR_10);
+//    }
+//    else {
+//        switch(tube) {
+//			case 1: GPIOB->ODR &= ~(GPIO_ODR_4); break;
+//			case 2: GPIOB->ODR &= ~(GPIO_ODR_5); break;
+//			case 3: GPIOB->ODR &= ~(GPIO_ODR_3); break;
+//			case 4: GPIOA->ODR &= ~(GPIO_ODR_10); break;
+//			case 5: GPIOA->ODR &= ~(GPIO_ODR_2); break;
+//			case 6: GPIOA->ODR &= ~(GPIO_ODR_3); break;
+//            default: break;
+//        }
+//    }
 }
 
 /* Pulse clock pin to shift a bit in the shift registers  */
@@ -113,48 +167,6 @@ void pulse_clock() {
 
     srclk_low();
     rclk_low();
-}
-
-/* Configures the shift registers to be used */
-void configure_shift_pins() {
-	/* AHB Peripheral Clock Enable Registers */
-	RCC->AHBENR =	( RCC_AHBENR_GPIOAEN | RCC_AHBENR_GPIOBEN | RCC_AHBENR_GPIOCEN
-					| RCC_AHBENR_GPIODEN | RCC_AHBENR_GPIOEEN | RCC_AHBENR_GPIOFEN);
-
-	/* set to LOW */
-	GPIOA->ODR &= ~(GPIO_ODR_2 | GPIO_ODR_3 | GPIO_ODR_10);
-	GPIOB->ODR &= ~(GPIO_ODR_3 | GPIO_ODR_4 | GPIO_ODR_5 | GPIO_ODR_13 | GPIO_ODR_14);
-	GPIOC->ODR &= ~(GPIO_ODR_0 | GPIO_ODR_1 | GPIO_ODR_2 | GPIO_ODR_3 | GPIO_ODR_4);
-	GPIOF->ODR &= ~(GPIO_ODR_0 | GPIO_ODR_1);
-
-	/* set to output */
-	GPIOA->MODER |= (GPIO_MODER_MODER2_0 | GPIO_MODER_MODER3_0 | GPIO_MODER_MODER10_0);
-	GPIOB->MODER |= (GPIO_MODER_MODER3_0 | GPIO_MODER_MODER4_0 | GPIO_MODER_MODER5_0
-			| GPIO_MODER_MODER13_0 | GPIO_MODER_MODER14_0);
-	GPIOC->MODER |= (GPIO_MODER_MODER0_0 | GPIO_MODER_MODER1_0 | GPIO_MODER_MODER2_0
-			| GPIO_MODER_MODER3_0 | GPIO_MODER_MODER4_0);
-	GPIOF->MODER |= (GPIO_MODER_MODER0_0 | GPIO_MODER_MODER1_0);
-
-	/* set to push pull */
-	GPIOA->OTYPER &= ~(GPIO_OTYPER_OT_2 | GPIO_OTYPER_OT_3 | GPIO_OTYPER_OT_10);
-	GPIOB->OTYPER &= ~(GPIO_OTYPER_OT_3 | GPIO_OTYPER_OT_4 | GPIO_OTYPER_OT_5
-			| GPIO_OTYPER_OT_13 | GPIO_OTYPER_OT_14);
-	GPIOC->OTYPER &= ~(GPIO_OTYPER_OT_0 | GPIO_OTYPER_OT_1 | GPIO_OTYPER_OT_2
-			| GPIO_OTYPER_OT_3 | GPIO_OTYPER_OT_4);
-	GPIOF->OTYPER &= ~(GPIO_OTYPER_OT_0 | GPIO_OTYPER_OT_1);
-
-	/* set to mid-speed */
-	GPIOA->OSPEEDR |= (GPIO_OSPEEDR_OSPEEDR2_0 | GPIO_OSPEEDR_OSPEEDR3_0
-			| GPIO_OSPEEDR_OSPEEDR4_0);
-	GPIOB->OSPEEDR |= (GPIO_OSPEEDR_OSPEEDR3_0 | GPIO_OSPEEDR_OSPEEDR4_0
-			| GPIO_OSPEEDR_OSPEEDR5_0 | GPIO_OSPEEDR_OSPEEDR13_0
-			| GPIO_OSPEEDR_OSPEEDR14_0);
-	GPIOC->OSPEEDR |= (GPIO_OSPEEDR_OSPEEDR0_0 | GPIO_OSPEEDR_OSPEEDR1_0
-			| GPIO_OSPEEDR_OSPEEDR2_0 | GPIO_OSPEEDR_OSPEEDR3_0
-			| GPIO_OSPEEDR_OSPEEDR4_0);
-	GPIOF->OSPEEDR |= (GPIO_OSPEEDR_OSPEEDR0_0 | GPIO_OSPEEDR_OSPEEDR1_0);
-
-//	GPIOB->ODR |= GPIO_ODR_4;	// set !OE high
 }
 
 
@@ -184,22 +196,22 @@ uint8_t dec_to_sev_seg(uint8_t value) {
 void assign_pin(uint8_t tube, uint8_t val) {
     if(val != 0) {
 		switch(tube) {
-			case 1: GPIOC->ODR |= GPIO_ODR_0; break;
-			case 2: GPIOC->ODR |= GPIO_ODR_1; break;
-			case 3: GPIOC->ODR |= GPIO_ODR_2; break;
-			case 4: GPIOC->ODR |= GPIO_ODR_3; break;
-			case 5: GPIOF->ODR |= GPIO_ODR_0; break;
-			case 6: GPIOF->ODR |= GPIO_ODR_1; break;
+			case 1: GPIOC->ODR |= (1 << SERIAL1); break;
+			case 2: GPIOC->ODR |= (1 << SERIAL2); break;
+			case 3: GPIOB->ODR |= (1 << SERIAL3); break;
+			case 4: GPIOB->ODR |= (1 << SERIAL4); break;
+			case 5: GPIOB->ODR |= (1 << SERIAL5); break;
+			case 6: GPIOB->ODR |= (1 << SERIAL6); break;
 		}
     }
     else {
 		switch(tube) {
-			case 1: GPIOC->ODR &= ~(GPIO_ODR_0); break;
-			case 2: GPIOC->ODR &= ~(GPIO_ODR_1); break;
-			case 3: GPIOC->ODR &= ~(GPIO_ODR_2); break;
-			case 4: GPIOC->ODR &= ~(GPIO_ODR_3); break;
-			case 5: GPIOF->ODR &= ~(GPIO_ODR_0); break;
-			case 6: GPIOF->ODR &= ~(GPIO_ODR_1); break;
+			case 1: GPIOC->ODR &= ~(1 << SERIAL1); break;
+			case 2: GPIOC->ODR &= ~(1 << SERIAL2); break;
+			case 3: GPIOB->ODR &= ~(1 << SERIAL3); break;
+			case 4: GPIOB->ODR &= ~(1 << SERIAL4); break;
+			case 5: GPIOB->ODR &= ~(1 << SERIAL5); break;
+			case 6: GPIOB->ODR &= ~(1 << SERIAL6); break;
 		}
     }
 }
@@ -265,11 +277,11 @@ void update_time(uint8_t decHrs, uint8_t decMins, uint8_t decSecs) {
     for(i = 0; i < 8; i++) {
     	/* set pins high or low to set segment high or low */
         assign_pin(1, (segHrsOne & (1 << i))); // (SER) for tube 1
-//        assign_pin(2, (segHrsTwo & (1 << i))); // (SER) for tube 2
-//        assign_pin(3, (segMinsOne & (1 << i))); // (SER) for tube 3
-//        assign_pin(4, (segMinsTwo & (1 << i))); // (SER) for tube 4
-//        assign_pin(5, (segSecsOne & (1 << i))); // (SER) for tube 5
-//        assign_pin(6, (segSecsTwo & (1 << i))); // (SER) for tube 6
+        assign_pin(2, (segHrsTwo & (1 << i))); // (SER) for tube 2
+        assign_pin(3, (segMinsOne & (1 << i))); // (SER) for tube 3
+        assign_pin(4, (segMinsTwo & (1 << i))); // (SER) for tube 4
+        assign_pin(5, (segSecsOne & (1 << i))); // (SER) for tube 5
+        assign_pin(6, (segSecsTwo & (1 << i))); // (SER) for tube 6
 
         /* force shift */
         pulse_clock();
@@ -318,22 +330,23 @@ void shift_out(uint8_t tubeNumber, uint8_t val) {
 }
 
 void prvUpdateTubes(void *pvParameters) {
-	static TickType_t delay_time = pdMS_TO_TICKS( 2000 ); // 1s
+	static TickType_t delay_time = pdMS_TO_TICKS( 1000 ); // 1s
 	for( ;; ) {
-		// take semaphore
+		// TODO: take semaphore
 
-		// if state == normal
+		if(system_state == Clock) {
+			update_time(1, 1, 1);
+		}
+		else if((system_state == Button_Temperature) || (system_state == BLE_Temperature)) {
+			update_temperature(30);
+		}
+		else if(system_state == Switch_Config) {
+			while(system_state == Switch_Config) {
+				toggle_rtc_led();
+			}
+		}
+
 		vTaskDelay(delay_time);
-		// else if state == config
-		// no vTaskDelay()
-
-		// if function == time
-		GPIOA->ODR ^= GPIO_ODR_6;
-		update_time(1, 1, 1);
-		GPIOA->ODR ^= GPIO_ODR_6;
-
-		// else if function == temperature
-//		update_temperature();
 
 	}
 }

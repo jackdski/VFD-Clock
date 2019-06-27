@@ -16,13 +16,45 @@
 /*	A P P L I C A T I O N   I N C L U D E S   */
 #include "adc.h"
 
+
+//#ifdef	DEMO
+//#define	PHOTORESISTOR_LEFT		13	// PC3 - AF0, CH13
+//#else
+//		PHOTORESISTOR_LEFT		6	// PA6 - AF0, CH6
+//#endif
+//#define PHOTORESISTOR_RIGHT		7	// PA7 - AF0, CH7
+
+//#define RANGE_THRESHOLD_1	3
+//#define RANGE_THRESHOLD_2	20
+//#define RANGE_THRESHOLD_3	40
+//#define RANGE_THRESHOLD_4	70
+
+/*	G L O B A L   V A R I A B L E S   */
+extern uint32_t light_value;
+
 void init_adc(void) {
-	/* configure GPIO pin - PC3 AF0 */
+#ifdef	DEMO
+	/* configure for Photoresistor Left - PC3 AF0 */
+
 	/* select alternate function mode */
 	GPIOC->MODER = (GPIOC->MODER & ~(GPIO_MODER_MODER3)) | GPIO_MODER_MODER3_1;
-
 	// select AF0 on PC3
 	GPIOC->AFR[0] |=  (0x00 << GPIO_AFRL_AFRL3_Pos); // AFRL (Ports 0-7)
+
+#else
+/* configure for Photoresistor Left - PA6 AF0 */
+	/* select alternate function mode */
+	GPIOA->MODER = (GPIOA->MODER & ~(GPIO_MODER_MODER6)) | GPIO_MODER_MODER6_1;
+	// select AF0 on PA6
+	GPIOA->AFR[0] &=  ~(GPIO_AFRL_AFRL6); // AFRL (Ports 0-7)
+#endif
+
+	/* configure for Photoresistor Right - PA7 AF0*/
+
+	/* select alternate function mode */
+	GPIOA->MODER = (GPIOA->MODER & ~(GPIO_MODER_MODER7)) | GPIO_MODER_MODER7_1;
+	// select AF0 on PA7
+	GPIOA->AFR[0] &=  ~(GPIO_AFRL_AFRL7); // AFRL (Ports 0-7)
 
 	calibrate_adc();
 
@@ -40,8 +72,16 @@ void init_adc(void) {
 
 	enable_adc();
 
-	// turn analog watchdog on for all channels
-	// set_analog_watchdog_adc(0xFF);
+//	select_adc_channel(PHOTORESISTOR_LEFT);
+//	light_value = sample_adc();
+//	select_adc_channel(PHOTORESISTOR_RIGHT);
+//	light_value = (light_value + sample_adc()) / 2;		// use average value
+//
+//	/* set ADC watchdog thresholds */
+//	set_adc_watchdog_thresholds(light_value);
+//
+//	// turn analog watchdog on for all channels
+//	 set_analog_watchdog_adc(0xFF);
 }
 
 void calibrate_adc(void) {
@@ -177,3 +217,56 @@ void select_adc_channel(uint8_t channel) {
 uint32_t inline read_adc(void) {
 	return (ADC1->DR & ADC_DR_DATA);
 }
+
+void set_adc_watchdog_thresholds(uint32_t avg_light) {
+	if(avg_light < RANGE_THRESHOLD_2) {
+		ADC1->TR |= (ADC_TR1_HT1 & RANGE_THRESHOLD_2);	// higher threshold
+		ADC1->TR |= (ADC_TR1_LT1 & RANGE_THRESHOLD_1);	// lower threshold
+	}
+	else if((avg_light < 80) && (avg_light >= 40)) {
+		ADC1->TR |= (ADC_TR1_HT1 & RANGE_THRESHOLD_3);	// higher threshold
+		ADC1->TR |= (ADC_TR1_LT1 & RANGE_THRESHOLD_2);	// lower threshold
+	}
+	else if((avg_light < 150) && (avg_light >= 80)) {
+		ADC1->TR |= (ADC_TR1_HT1 & 149);	// higher threshold
+		ADC1->TR |= (ADC_TR1_LT1 & RANGE_THRESHOLD_3);	// lower threshold
+	}
+	else if(avg_light >= 150) {
+		ADC1->TR |= (ADC_TR1_HT1 & (RANGE_THRESHOLD_4 + 100));	// higher threshold
+		ADC1->TR |= (ADC_TR1_LT1 & RANGE_THRESHOLD_4);	// lower threshold
+	}
+}
+
+uint8_t in_diff_light_range(uint32_t old_value, uint32_t new_value) {
+	if((old_value < RANGE_THRESHOLD_1) && (new_value < RANGE_THRESHOLD_1)) {
+		return 0;
+	}
+	else if(((old_value < RANGE_THRESHOLD_2) && (new_value < RANGE_THRESHOLD_2)) && ((new_value >= RANGE_THRESHOLD_1) && (new_value >= RANGE_THRESHOLD_1))) {
+		return 0;
+	}
+	else if(((old_value < RANGE_THRESHOLD_3) && (new_value < RANGE_THRESHOLD_3)) && ((new_value >= RANGE_THRESHOLD_1) && (new_value >= RANGE_THRESHOLD_1))) {
+		return 0;
+	}
+	else if((old_value >= RANGE_THRESHOLD_3) && (new_value >= RANGE_THRESHOLD_3)) {
+		return 0;
+	}
+	return 1;
+}
+
+uint8_t is_good_light_data(uint32_t sample_one, uint32_t sample_two) {
+	if(sample_one >= sample_two) {
+		if(sample_one - sample_two < 15)
+			return 1;
+		else
+			return 0;
+	}
+	else if(sample_two > sample_one) {
+		if(sample_two - sample_one < 15)
+			return 1;
+		else
+			return 0;
+	}
+	return 0;
+}
+
+

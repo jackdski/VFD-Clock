@@ -45,29 +45,32 @@ void init_sysclock(void) {
 					| RCC_AHBENR_GPIODEN
 					| RCC_AHBENR_GPIOEEN
 					| RCC_AHBENR_GPIOFEN
+					| RCC_AHBENR_TSCEN
 		);
 
 	RCC->APB1ENR =  ( RCC_APB1ENR_TIM2EN
-			| RCC_APB1ENR_TIM14EN
-			| RCC_APB1ENR_USART2EN
-			| RCC_APB1ENR_USART3EN
-			| RCC_APB1ENR_I2C1EN
-			| RCC_APB1ENR_PWREN
+					| RCC_APB1ENR_TIM14EN
+					| RCC_APB1ENR_USART2EN
+					| RCC_APB1ENR_USART3EN
+					| RCC_APB1ENR_I2C1EN
+					| RCC_APB1ENR_I2C2EN
+					| RCC_APB1ENR_PWREN
 		);
 
 	RCC->APB2ENR =  ( RCC_APB2ENR_ADCEN
-			| RCC_APB2ENR_TIM1EN
-			| RCC_APB2ENR_USART1EN
-			| RCC_APB2ENR_TIM15EN
-			| RCC_APB2ENR_TIM16EN
+					| RCC_APB2ENR_TIM1EN
+					| RCC_APB2ENR_USART1EN
+					| RCC_APB2ENR_TIM15EN
+					| RCC_APB2ENR_TIM16EN
+					| RCC_APB2ENR_SYSCFGEN
 		);
 
-	/* Real-Time Clock */
-	RCC->BDCR =	( RCC_BDCR_LSEON	// LSE oscillator enable
-			| RCC_BDCR_LSEDRV_0		// not-bypass mode medium-high drive LSE
-			| RCC_BDCR_RTCSEL_LSI 	// LSI used for prototyping, use LSE otherwise
-			| RCC_BDCR_RTCEN		// enable RTC
-		);
+//	/* Real-Time Clock */
+//	RCC->BDCR =		( RCC_BDCR_LSEON	// LSE oscillator enable
+//					| RCC_BDCR_LSEDRV_0		// not-bypass mode medium-high drive LSE
+//					| RCC_BDCR_RTCSEL_LSI 	// LSI used for prototyping, use LSE otherwise
+//					| RCC_BDCR_RTCEN		// enable RTC
+//		);
 
 	/* Do not divide PREDIV input clock */
 	RCC->CFGR2 = 	RCC_CFGR2_PREDIV_DIV1;

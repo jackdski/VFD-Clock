@@ -16,12 +16,13 @@
 
 /*	A P P L I C A T I O N   I N C L U D E S   */
 #include "usart.h"
-
+#include "vfd_typedefs.h"
 
 /*	G L O B A L   V A R I A B L E S   */
 extern uint8_t usart_msg;
 extern QueueHandle_t BLE_Queue;;
 
+/*	U A R T   F U N C T I O N S   */
 void init_usart(void) {
 	/* disable USART */
 	USART1->CR1 &=  ~USART_CR1_UE;	// disable USART
@@ -35,13 +36,13 @@ void init_usart(void) {
 	GPIOA->AFR[1] |=  ((0x01 << GPIO_AFRH_AFRH1_Pos)
 				  	  |(0x01 << GPIO_AFRH_AFRH2_Pos)); // AFRL (Ports 8-15)
 
-	/* p.703 in ref. manual, double if oversampling by 8 instead of 16 */
+	/* p.703 in reference manual, double if oversampling by 8 instead of 16 */
 	USART1->BRR = 840;	// set to 9600 baud (actual is 9542 baud)
 
 	/* Control Register 1 */
 	USART1->CR1 |= 	( USART_CR1_TE			// enable Transmitter
 					| USART_CR1_RE 			// enable Receiver
-					| USART_CR1_RXNEIE		// enable RX interuppt
+					| USART_CR1_RXNEIE		// enable RX interrupt
 					| USART_CR1_UESM		// enable USART in STOP mode
 					| (USART_CR1_M & 0) 	// 8-bit character length
 					| USART_CR1_PS			// odd parity
@@ -63,7 +64,7 @@ void init_usart(void) {
 
 	/* Control Register 3 */
 	USART1->CR3 |=  ( USART_CR3_WUFIE
-					| (USART_CR3_WUS & 0x3)	// Wakeup from Stop mode interupt trigger on RXNE
+					| (USART_CR3_WUS & 0x3)	// Wake up from Stop mode interrupt trigger on RXNE
 					| USART_CR3_OVRDIS 		// disable Overrun detection
 		);
 
@@ -93,25 +94,20 @@ void inline uart_send_byte(uint8_t byte) {
 	USART1->TDR = byte;
 }
 
-//void uart_send_bytes(uint8_t * bytes) {
-//}
+// TODO: add function to send a string
+//void uart_send_bytes(uint8_t * bytes);
 
-
-/* receive a byte */
-void inline uart_read_byte(void) {
-	if((USART1->ISR & USART_ISR_RXNE) == USART_ISR_RXNE) {
-		// add to USART Queue
-		usart_msg = (uint8_t)(USART1->RDR);
-
-		// add value of usart_msg to xUSARTQueue without any blocking time
-		xQueueSendToBackFromISR(BLE_Queue, &usart_msg, 0U);
-	}
-}
 
 void USART1_IRQHandler() {
+	/* if USART RX is not-empty, add to BLE/USART Queue */
 	if(USART1->ISR & USART_ISR_RXNE) {
-		GPIOA->ODR ^= GPIO_ODR_6;
-		uart_read_byte();
+		// read data from RX register
+		usart_msg = (uint8_t)(USART1->RDR);
+
+		// add value of usart_msg to BLE_Queue without any blocking time
+		xQueueSendToBackFromISR(BLE_Queue, &usart_msg, 0U);
+
+		/* clear interrupt flag */
 		USART1->ISR |= USART_ISR_RXNE;
 	}
 }

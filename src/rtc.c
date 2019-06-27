@@ -12,11 +12,29 @@
 /*	F R E E R T O S   I N C L U D E S   */
 #include "FreeRTOS.h"
 #include "task.h"
+#include "queue.h"
+#include "semphr.h"
 
 /*	A P P L I C A T I O N   I N C L U D E S   */
+#include "sensor_tasks.h"
 #include "rtc.h"
 
+/*	S E M A P H O R E S   */
+extern SemaphoreHandle_t sRTC;
+
+
 void init_rtc(void) {
+	PWR->CR |= PWR_CR_DBP;		// set bit for write-protection
+
+	RCC->BDCR |= RCC_BDCR_BDRST;
+
+	RCC->BDCR =		( RCC_BDCR_LSEON		// LSE oscillator enable
+//					| RCC_BDCR_LSEDRV_0		// not-bypass mode medium-high drive LSE
+					| RCC_BDCR_RTCSEL_0 	// LSE used for prototyping, use LSE otherwise
+					| RCC_BDCR_RTCEN		// enable RTC
+		);
+
+	/* unlock RTC registers */
 	RTC->WPR = 0xCA;
 	RTC->WPR = 0x53;
 
@@ -26,10 +44,57 @@ void init_rtc(void) {
 	RTC->PRER = 0x007F0137;
 
 	RTC->CR &= ~(RTC_CR_OSEL); // output disabled
-	RTC->CR |= RTC_CR_BYPSHAD;
+	RTC->CR |= (RTC_CR_BYPSHAD | RTC_CR_ALRAIE);
 
-	RTC->WPR = 0xFE; /* (7) */
-	RTC->WPR = 0x64; /* (7) */
+//	/* set Asynchronous prescaler to 127 */
+//	RTC->PRER |= (RTC_PRER_PREDIV_A & 127);
+//
+//	/* set Synchronous prescaler to 255 */
+//	RTC->PRER |= (RTC_PRER_PREDIV_S & 255);
+
+	RTC->CR &= ~RTC_CR_ALRAE;	// disable alarm
+	while ((RTC->ISR & RTC_ISR_ALRAWF) != RTC_ISR_ALRAWF);
+
+	RTC->ALRMAR = RTC_ALRMAR_MSK4 | RTC_ALRMAR_MSK3
+	| RTC_ALRMAR_MSK2 | RTC_ALRMAR_MSK1;
+
+//	/* create 1Hz Alarm */
+//	RTC->ALRMASSR &= ~(RTC_ALRMASSR_MASKSS);		// MASKSS[3:0] = 0
+//	RTC->ALRMASSR |= (255 & RTC_ALRMASSR_SS);		// SS[14:0] = 255
+
+
+
+	RTC->CR = RTC_CR_ALRAIE | RTC_CR_ALRAE;	// enable Alarm A and Alarm A interrupt
+
+	RTC->ISR &= ~RTC_ISR_INIT;	// clear init bit
+
+	/* lock RTC registers */
+	RTC->WPR = 0xFE;
+	RTC->WPR = 0x64;
+
+	/* Configure RTC Alarm A interrupt */
+//	SYSCFG->IT_LINE_SR[2] = SYSCFG_ITLINE2_SR_RTC_ALRA;
+	EXTI->IMR |= EXTI_IMR_MR17;
+//	EXTI->EMR |= EXTI_EMR_MR17;
+	EXTI->RTSR |= EXTI_RTSR_TR17;	// enable rising trigger
+	EXTI->SWIER |= EXTI_SWIER_SWIER17;
+
+
+	/* enable RTC interrupts */
+	NVIC_EnableIRQ(RTC_IRQn);
+	NVIC_SetPriority(RTC_IRQn, 0);
+}
+
+/* handles interrupts from RTC's Alarm A */
+void RTC_IRQHandler(void) {
+	if(RTC->ISR & RTC_ISR_ALRAF) {
+		BaseType_t xHigherPriorityTaskWoken = pdFALSE;	// default value is pdFALSES
+
+		xSemaphoreGiveFromISR(sRTC, &xHigherPriorityTaskWoken);
+//		xTaskNotifyGiveFromISR( thRTC, &xHigherPriorityTaskWoken );
+		RTC->ISR &= ~RTC_ISR_ALRAF;		// clear flag
+		portYIELD_FROM_ISR( xHigherPriorityTaskWoken );
+	}
 }
 
 /* Hours, minutes, and seconds read/write */
@@ -37,6 +102,7 @@ uint32_t read_rtc_time(void) {
 	if((RTC->ISR & RTC_ISR_RSF) == RTC_ISR_RSF) {
 		return RTC->TR; /* get time */
 	}
+	return RTC->TR; /* get time */ // TODO: necessary?
 }
 
 uint8_t inline read_rtc_ampm(void) {
@@ -76,6 +142,7 @@ uint32_t read_rtc_calender(void) {
 	if((RTC->ISR & RTC_ISR_RSF) == RTC_ISR_RSF) {
 		return RTC->DR;
 	}
+	return RTC->DR;
 }
 
 uint8_t inline read_rtc_year(void) {
