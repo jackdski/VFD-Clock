@@ -18,9 +18,11 @@
 /*	A P P L I C A T I O N   I N C L U D E S   */
 #include "sensor_tasks.h"
 #include "rtc.h"
+#include "gpio.h"
 
 /*	S E M A P H O R E S   */
 extern SemaphoreHandle_t sRTC;
+extern TaskHandle_t thRTC;
 
 
 void init_rtc(void) {
@@ -29,7 +31,7 @@ void init_rtc(void) {
 	RCC->BDCR |= RCC_BDCR_BDRST;
 
 	RCC->BDCR =		( RCC_BDCR_LSEON		// LSE oscillator enable
-//					| RCC_BDCR_LSEDRV_0		// not-bypass mode medium-high drive LSE
+					| RCC_BDCR_LSEDRV_0		// not-bypass mode medium-high drive LSE
 					| RCC_BDCR_RTCSEL_0 	// LSE used for prototyping, use LSE otherwise
 					| RCC_BDCR_RTCEN		// enable RTC
 		);
@@ -39,32 +41,29 @@ void init_rtc(void) {
 	RTC->WPR = 0x53;
 
 	RTC->ISR |= RTC_ISR_INIT;
-	while ((RTC->ISR & RTC_ISR_INITF) != RTC_ISR_INITF);
+	while (!(RTC->ISR & RTC_ISR_INITF));
 
-	RTC->PRER = 0x007F0137;
+/* NOTE: The following value given in the AN3371 document is wrong,
+ * 	This value assumes a 40kHz quartz instead of the 32kHz clock that
+ * 	is provided on the Nucleo Development board
+ *	RTC->PRER = 0x007F0137; */
+	RTC->PRER = 0x007F00FF;		// Correct value to output exactly 1s on RTC with 32kHz quartz
 
-	RTC->CR &= ~(RTC_CR_OSEL); // output disabled
+	RTC->CR &= ~(RTC_CR_OSEL); 	// output disabled
 	RTC->CR |= (RTC_CR_BYPSHAD | RTC_CR_ALRAIE);
 
-//	/* set Asynchronous prescaler to 127 */
-//	RTC->PRER |= (RTC_PRER_PREDIV_A & 127);
-//
-//	/* set Synchronous prescaler to 255 */
-//	RTC->PRER |= (RTC_PRER_PREDIV_S & 255);
+	/* initialize time to 12:00:00 */
+	RTC->TR |= RTC_TR_PM;  // set to PM
+	RTC->TR = (1 & RTC_TR_HT) | (2 & RTC_TR_HU);
 
+	/* configure alarm */
 	RTC->CR &= ~RTC_CR_ALRAE;	// disable alarm
 	while ((RTC->ISR & RTC_ISR_ALRAWF) != RTC_ISR_ALRAWF);
 
-	RTC->ALRMAR = RTC_ALRMAR_MSK4 | RTC_ALRMAR_MSK3
-	| RTC_ALRMAR_MSK2 | RTC_ALRMAR_MSK1;
+	RTC->ALRMAR = 	( RTC_ALRMAR_MSK4 | RTC_ALRMAR_MSK3
+					| RTC_ALRMAR_MSK2 | RTC_ALRMAR_MSK1);
 
-//	/* create 1Hz Alarm */
-//	RTC->ALRMASSR &= ~(RTC_ALRMASSR_MASKSS);		// MASKSS[3:0] = 0
-//	RTC->ALRMASSR |= (255 & RTC_ALRMASSR_SS);		// SS[14:0] = 255
-
-
-
-	RTC->CR = RTC_CR_ALRAIE | RTC_CR_ALRAE;	// enable Alarm A and Alarm A interrupt
+	RTC->CR |= RTC_CR_ALRAIE | RTC_CR_ALRAE;	// enable Alarm A and Alarm A interrupt
 
 	RTC->ISR &= ~RTC_ISR_INIT;	// clear init bit
 
@@ -73,12 +72,12 @@ void init_rtc(void) {
 	RTC->WPR = 0x64;
 
 	/* Configure RTC Alarm A interrupt */
-//	SYSCFG->IT_LINE_SR[2] = SYSCFG_ITLINE2_SR_RTC_ALRA;
+	SYSCFG->IT_LINE_SR[2] = SYSCFG_ITLINE2_SR_RTC_ALRA;
 	EXTI->IMR |= EXTI_IMR_MR17;
-//	EXTI->EMR |= EXTI_EMR_MR17;
 	EXTI->RTSR |= EXTI_RTSR_TR17;	// enable rising trigger
 	EXTI->SWIER |= EXTI_SWIER_SWIER17;
 
+	EXTI->PR &= ~(EXTI_PR_PR17);
 
 	/* enable RTC interrupts */
 	NVIC_EnableIRQ(RTC_IRQn);
@@ -88,11 +87,12 @@ void init_rtc(void) {
 /* handles interrupts from RTC's Alarm A */
 void RTC_IRQHandler(void) {
 	if(RTC->ISR & RTC_ISR_ALRAF) {
+		toggle_error_led();
 		BaseType_t xHigherPriorityTaskWoken = pdFALSE;	// default value is pdFALSES
-
-		xSemaphoreGiveFromISR(sRTC, &xHigherPriorityTaskWoken);
-//		xTaskNotifyGiveFromISR( thRTC, &xHigherPriorityTaskWoken );
-		RTC->ISR &= ~RTC_ISR_ALRAF;		// clear flag
+		configASSERT(thRTC != NULL);
+		vTaskNotifyGiveFromISR(thRTC, &xHigherPriorityTaskWoken );
+		RTC->ISR &= ~RTC_ISR_ALRAF;		// clear flag;
+		EXTI->PR |= (EXTI_PR_PR17);
 		portYIELD_FROM_ISR( xHigherPriorityTaskWoken );
 	}
 }
@@ -110,15 +110,15 @@ uint8_t inline read_rtc_ampm(void) {
 }
 
 uint8_t inline read_rtc_hours(void) {
-	return (uint8_t)((RTC->TR & RTC_TR_HT) * 10) + (RTC->TR & RTC_TR_HU);
+	return (uint8_t)((((RTC->TR & RTC_TR_HT) >> RTC_TR_HT_Pos) * 10) + ((RTC->TR & RTC_TR_HU) >> RTC_TR_HU_Pos));
 }
 
 uint8_t inline read_rtc_minutes(void) {
-	return (uint8_t)((RTC->TR & RTC_TR_MNT) * 10) + (RTC->TR & RTC_TR_MNU);
+	return (uint8_t)((((RTC->TR & RTC_TR_MNT) >> RTC_TR_MNT_Pos) * 10) + ((RTC->TR & RTC_TR_MNU) >> RTC_TR_MNU_Pos));
 }
 
 uint8_t inline read_rtc_seconds(void) {
-	return (uint8_t)((RTC->TR & RTC_TR_ST) * 10) + (RTC->TR & RTC_TR_SU);
+	return  (uint8_t)((((RTC->TR & RTC_TR_ST) >> RTC_TR_ST_Pos) * 10) + ((RTC->TR & RTC_TR_SU) >> RTC_TR_SU_Pos));
 }
 
 void inline change_rtc_hours(uint8_t new_hours) {
@@ -146,19 +146,19 @@ uint32_t read_rtc_calender(void) {
 }
 
 uint8_t inline read_rtc_year(void) {
-	return (uint8_t)((RTC->DR & RTC_DR_YT) * 10) + (RTC->DR & RTC_DR_YU);
+	return (uint8_t)((((RTC->DR & RTC_DR_YT) >> RTC_DR_YT_Pos) * 10) + ((RTC->DR & RTC_DR_YU) >> RTC_DR_YU_Pos));
 }
 
 uint8_t inline read_rtc_month(void) {
-	return (uint8_t)((RTC->DR & RTC_DR_MT) * 10) + (RTC->DR & RTC_DR_MU);
+	return (uint8_t)((((RTC->DR & RTC_DR_MT) >> RTC_DR_MT_Pos ) * 10) + ((RTC->DR & RTC_DR_MU) >> RTC_DR_MU_Pos));
 }
 
 uint8_t inline read_rtc_day(void) {
-	return (uint8_t)((RTC->DR & RTC_DR_DT) * 10) + (RTC->DR & RTC_DR_DU);
+	return (uint8_t)((((RTC->DR & RTC_DR_DT) >> RTC_DR_DT_Pos ) * 10) + ((RTC->DR & RTC_DR_DU) >> RTC_DR_DU_Pos));
 }
 
 uint8_t inline read_rtc_day_of_week(void) {
-	return (uint8_t)((RTC->DR & RTC_DR_WDU));
+	return (uint8_t)((RTC->DR & RTC_DR_WDU) >> RTC_DR_WDU_Pos);
 }
 
 void inline change_rtc_year(uint8_t new_year) {

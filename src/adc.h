@@ -14,7 +14,7 @@
 #ifdef	DEMO
 #define	PHOTORESISTOR_LEFT		13	// PC3 - AF0, CH13
 #else
-#define		PHOTORESISTOR_LEFT		(6)	// PC6 - AF0, CH6
+#define	PHOTORESISTOR_LEFT		6	// PC6 - AF0, CH6
 #endif
 
 #define PHOTORESISTOR_RIGHT		7	// PA7 - AF0, CH7

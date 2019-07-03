@@ -17,14 +17,12 @@ void init_sysclock(void) {
 				| RCC_CR2_HSI14ON
 		);
 
-
-//	NVIC_EnableIRQ(RCC_CRS_IRQn);
-//	NVIC_SetPriority(RCC_CRS_IRQn,0);
+	while(!(RCC->CR & RCC_CR_HSIRDY));
 
 //	RCC->CIR |= RCC_CIR_HSI48RDYIE;
 	RCC->CR |= RCC_CR_CSSON | RCC_CR_HSION;
 
-	RCC->CFGR = ( //RCC_CFGR_SW_HSI48  		// use HSE as System Clock
+	RCC->CFGR = ( // RCC_CFGR_SW_HSI48  	// use HSE as System Clock
 				RCC_CFGR_HPRE_DIV1  		// do not divide System Clock
 				| RCC_CFGR_PPRE_0  			// HCLK not divided for PCLK prescaler
 				| RCC_CFGR_PLLSRC_HSI_DIV2  // PPL input clock source is HSI/2
@@ -89,10 +87,15 @@ void init_sysclock(void) {
 //	while(!(RCC->CFGR & RCC_CFGR_SWS));
 }
 
-//void RCC_CRS_IRQHandler(void) {
-//	if((RCC->CIR & RCC_CIR_HSI48RDYF) != 0) {
-//		RCC->CIR |= RCC_CIR_HSI48RDYC;
-//		RCC->CFGR = (RCC->CFGR & ~RCC_CFGR_SW) | RCC_CFGR_SW_HSI48;
-//	}
-//}
+void init_timing_stats_timer(void) {
+	/* config TIM14 registers */
+	TIM3->PSC = 799; 	// 8MHz / (799+1) = 10kHz
+	TIM3->ARR = (uint16_t)10000; // 1 second
+	TIM3->CCR1 = (uint16_t)TIM_SR_CC1OF;
+	TIM3->CCER &= ~(TIM_CCER_CC1NP);	// OC1N active high
+	/* Enable output (MOE = 1)*/
+//	TIM3->BDTR |= TIM_BDTR_MOE;
+
+	TIM3->CR1 |= TIM_CR1_DIR | TIM_CR1_CEN;	// enable downcounter and counter
+}
 

@@ -12,6 +12,7 @@
 //extern uint32_t SystemCoreClock;
 
 #include "stm32f0xx_it.h"
+#include "stm32f091xc.h"
 
 /* redirect FreeRTOS port interrupts */
 //#define vPortSVCHandler							SVC_handler
@@ -40,9 +41,14 @@
 #define configUSE_MALLOC_FAILED_HOOK	1
 #define configUSE_APPLICATION_TASK_TAG	0
 #define configUSE_COUNTING_SEMAPHORES	1
-#define configGENERATE_RUN_TIME_STATS	0
 #define configUSE_TASK_NOTIFICATIONS	1
 #define configUSE_TICKLESS_IDLE			1
+
+/* run time stats */
+extern void init_timing_stats_timer(void);
+#define configGENERATE_RUN_TIME_STATS				1
+#define portCONFIGURE_TIMER_FOR_RUN_TIME_STATS()	init_timing_stats_timer()
+#define portGET_RUN_TIME_COUNTER_VALUE()			TIM3->CCR1
 
 /* Co-routine definitions. */
 #define configUSE_CO_ROUTINES 			0

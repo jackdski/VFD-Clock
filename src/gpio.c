@@ -18,8 +18,6 @@
 #include "vfd_typedefs.h"
 
 /*	G L O B A L   V A R I A B L E S   */
-
-/*	G L O B A L   V A R I A B L E S   */
 extern System_State_E system_state;
 
 extern uint8_t hours;
@@ -93,15 +91,16 @@ void init_buttons(void) {
 	RCC->AHBENR |= RCC_AHBENR_GPIOAEN;		// make sure GPIOA is enabled
 
 	/* set to input */
-	GPIOA->MODER &=    ~( GPIO_MODER_MODER7
+	GPIOA->MODER &=    ~( GPIO_MODER_MODER13
 						| GPIO_MODER_MODER9
+						| GPIO_MODER_MODER7
 						| GPIO_MODER_MODER2
-
 		);
 
 	/* configure to pull-down */
-	GPIOA->PUPDR |=     ( GPIO_PUPDR_PUPDR7_1
+	GPIOA->PUPDR |=     ( GPIO_PUPDR_PUPDR13_1
 						| GPIO_PUPDR_PUPDR9_1
+						| GPIO_PUPDR_PUPDR7_1
 						| GPIO_PUPDR_PUPDR2_1
 		);
 
@@ -122,12 +121,13 @@ void init_buttons(void) {
 
 	/* enable interrupts on EXTI Lines 4-15*/
 	NVIC_EnableIRQ(EXTI4_15_IRQn);
-	NVIC_SetPriority(EXTI4_15_IRQn, 0);
+	NVIC_SetPriority(EXTI4_15_IRQn, 1);
 
 #else
 //#define		PLUS_BUTTON_PIN		0	// PC0
 //#define		MINUS_BUTTON_PIN	1	// PC1
 //#define		CONFIG_SWITCH		2	// PC2
+//#define		ON_OFF_SWITCH		13 	// PC13
 
 	/* make sure GPIOC is enabled */
 	RCC->AHBENR |= RCC_AHBENR_GPIOCEN;
@@ -136,16 +136,18 @@ void init_buttons(void) {
 	GPIOC->MODER &=    ~( GPIO_MODER_MODER0
 						| GPIO_MODER_MODER1
 						| GPIO_MODER_MODER2
+						| GPIO_MODER_MODER13
 		);
 
 	/* configure to pull-down */
-	GPIOA->PUPDR |=     ( GPIO_PUPDR_PUPDR0_1
+	GPIOC->PUPDR |=     ( GPIO_PUPDR_PUPDR0_1
 						| GPIO_PUPDR_PUPDR1_1
 						| GPIO_PUPDR_PUPDR2_1
+						| GPIO_PUPDR_PUPDR13_1
 		);
 
 	/* Configure PC0 ('+') button interrupt */
-	SYSCFG->EXTICR[1] = SYSCFG_EXTICR1_EXTI0_PC;	// external interrupt on PC[0]
+	SYSCFG->EXTICR[0] |= SYSCFG_EXTICR1_EXTI0_PC;	// external interrupt on PC[0]
 	EXTI->IMR |= EXTI_IMR_MR0; 		// select line 0 for PC0;
 	EXTI->RTSR |= EXTI_RTSR_TR0;	// enable rising trigger
 	EXTI->FTSR &= ~EXTI_FTSR_TR0; 	// disable falling trigger
@@ -154,34 +156,33 @@ void init_buttons(void) {
 	EXTI->PR &= ~(EXTI_PR_PR0);
 
 	/* Configure PC1 ('-') button interrupt */
-	SYSCFG->EXTICR[1] = SYSCFG_EXTICR1_EXTI1_PC;	// external interrupt on PC[1]
+	SYSCFG->EXTICR[0] |= SYSCFG_EXTICR1_EXTI1_PC;	// external interrupt on PC[1]
 	EXTI->IMR |= EXTI_IMR_MR1; 		// select line 1 for PC1;
 	EXTI->RTSR |= EXTI_RTSR_TR1;	// enable rising trigger
-	EXTI->FTSR &= EXTI_FTSR_TR1; 	// disable falling trigger
+	EXTI->FTSR &= ~EXTI_FTSR_TR1; 	// disable falling trigger
 
 	// clear pending interrupt flag
 	EXTI->PR &= ~(EXTI_PR_PR1);
-
 	/* enable interrupts on EXTI Lines 0 & 1 */
 	NVIC_EnableIRQ(EXTI0_1_IRQn);
-	NVIC_SetPriority(EXTI0_1_IRQn, 0);
+	NVIC_SetPriority(EXTI0_1_IRQn, 1);
 #endif
 
 	/* Configure PC2 (Configure) switch interrupt */
-	SYSCFG->EXTICR[1] = SYSCFG_EXTICR1_EXTI2_PC;	// external interrupt on PC[2]
+	SYSCFG->EXTICR[0] |= SYSCFG_EXTICR1_EXTI2_PC;	// external interrupt on PC[2]
 	EXTI->IMR |= EXTI_IMR_MR2; 		// select line 2 for PC2;
 	EXTI->RTSR |= EXTI_RTSR_TR2;	// enable rising trigger
-	EXTI->FTSR &= EXTI_FTSR_TR2; 	// disable falling trigger
+	EXTI->FTSR &= ~EXTI_FTSR_TR2; 	// disable falling trigger
 
 	/* Configure PC13 (On/Off) switch interrupt */
-	SYSCFG->EXTICR[4] = SYSCFG_EXTICR4_EXTI12_PC;	// external interrupt on PC[2]
+	SYSCFG->EXTICR[3] |= SYSCFG_EXTICR4_EXTI13_PC;	// external interrupt on PC[13]
 	EXTI->IMR |= EXTI_IMR_MR13; 	// select line 13 for PC13;
 	EXTI->RTSR |= EXTI_RTSR_TR13;	// enable rising trigger
-	EXTI->FTSR &= EXTI_FTSR_TR13; 	// disable falling trigger
+	EXTI->FTSR &= ~EXTI_FTSR_TR13; 	// disable falling trigger
 
 	/* enable interrupts on EXTI Lines 2 & 3 */
 	NVIC_EnableIRQ(EXTI2_3_IRQn);
-	NVIC_SetPriority(EXTI2_3_IRQn, 0);
+	NVIC_SetPriority(EXTI2_3_IRQn, 1);
 }
 
 /*   R E A D S   */
@@ -203,8 +204,6 @@ void prvBlink_LED(void *pvParameters) {
 	const TickType_t delay_time = pdMS_TO_TICKS(500); // 0.5s period
 	for( ;; ) {
 		toggle_led();
-//		int i;
-//		for(i=0; i < 200000; i++);
 		vTaskDelay(delay_time);	// 0.5s
 
 	}
@@ -227,17 +226,31 @@ void EXTI0_1_IRQHandler(void) {
 		EXTI->PR |= EXTI_PR_PR1;
 		toggle_error_led();
 	}
+	EXTI->PR |= (EXTI_PR_PR0 | EXTI_PR_PR1);
 }
 #endif
 
 /* Config Switch -> PC2 */
 void EXTI2_3_IRQHandler(void) {
-	/* '-' Button */
+	/* Config Switch */
 	if(EXTI->PR & EXTI_PR_PR2) {
+		// if Input is high, set to Switch_Config state and falling edge interrupt
+		if(GPIOC->IDR & GPIO_IDR_2) {
+			toggle_error_led();
+			system_state = Switch_Config;	// TODO: use a function to select state
+			EXTI->RTSR &= ~EXTI_RTSR_TR2;	// disable rising trigger
+			EXTI->FTSR |= EXTI_FTSR_TR2; 	// enable falling trigger
+		}
+		else if(GPIOC->IDR & ~GPIO_IDR_2) {
+			toggle_error_led();
+			system_state = Clock;  			// TODO: use a function to select state
+			EXTI->RTSR |= EXTI_RTSR_TR2;	// enable rising trigger
+			EXTI->FTSR &= ~EXTI_FTSR_TR2; 	// disable falling trigger
+		}
 		EXTI->PR |= EXTI_PR_PR2;
-		toggle_error_led();
-		system_state = Switch_Config;
+
 	}
+	EXTI->PR |= (EXTI_PR_PR2);
 }
 
 void EXTI4_15_IRQHandler(void) {
@@ -274,11 +287,11 @@ void EXTI4_15_IRQHandler(void) {
 	}
 #endif
 	/* on/off switch */
-	if(EXTI->PR & EXTI_PR_PR13) {
-		EXTI->PR |= EXTI_PR_PR13;
-		toggle_error_led();
-		system_state = Deep_Sleep;
-	}
+//	if(EXTI->PR & EXTI_PR_PR13) {
+//		EXTI->PR |= EXTI_PR_PR13;
+//		toggle_error_led();
+//		system_state = Deep_Sleep;
+//	}
 }
 
 

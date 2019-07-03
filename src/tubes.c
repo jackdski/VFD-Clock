@@ -28,7 +28,9 @@ extern uint8_t seconds;			/* 0-59 */
 extern int8_t temperature;		/* -128 - 127 */
 
 /*	D E F I N E S   */
-#define	TUBE_TESTING		// only outputs 0xAA on tubes
+//#define	TUBE_TESTING		// only outputs 0xAA on tubes
+#define DISPLAY_BINARY	1		// display BCD values instead of VFD-Tube mapped
+
 
 /* Binary values that will display the corresponding
  * numbers on the seven segment displays after being
@@ -261,6 +263,13 @@ void update_time(uint8_t decHrs, uint8_t decMins, uint8_t decSecs) {
     uint8_t segSecsOne = 0xAA;
     uint8_t segSecsTwo = 0xAA;
 
+#elif DISPLAY_BINARY
+    uint8_t segHrsOne = (decHrs / 10);
+    uint8_t segHrsTwo = (decHrs % 10);
+    uint8_t segMinsOne = (decMins / 10);
+    uint8_t segMinsTwo = (decMins % 10);
+    uint8_t segSecsOne = (decSecs / 10);
+    uint8_t segSecsTwo = (decSecs % 10);
 #else
     uint8_t segHrsOne = dec_to_sev_seg(decHrs / 10);
     uint8_t segHrsTwo = dec_to_sev_seg(decHrs % 10);

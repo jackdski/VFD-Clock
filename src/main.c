@@ -27,11 +27,10 @@
 volatile QueueHandle_t BLE_Queue = NULL;		// cannot be static if used across multiple files
 
 /*	S E M A P H O R E S   */
-volatile SemaphoreHandle_t sRTC = NULL;
 
 /*	T A S K   N O T I F I C A T I O N S   */
-//volatile TaskHandle_t thRTC = NULL;
-//volatile TaskHandle_t thTubes = NULL;
+TaskHandle_t thRTC = NULL;
+TaskHandle_t thTubes = NULL;
 
 /*	F R E E R T O S   H O O K S   */
 void vApplicationMallocFailedHook( void );
@@ -50,26 +49,17 @@ volatile uint8_t seconds = 0;		/* 0-59 */
 volatile int8_t temperature = 0;	/* -128 - 127 */
 
 volatile uint32_t light_value = 200;
-volatile uint16_t display_brightness = 100;
+volatile uint16_t display_brightness = 50;
 volatile uint8_t usart_msg = 0;
-
 
 /*	M A I N   */
 int main(void) {
 	/* create queues */
 	BLE_Queue = xQueueCreate(20, 1);	// 20 items, each 1-bytes, enough space for 3 received messages
 
-	/* create semaphores */
-    sRTC = xSemaphoreCreateBinary();
-
-    if(sRTC == NULL) {
-		toggle_error_led();
-    	while(1);
-    }
-
 	/* initialize peripherals */
 	init_sysclock();
-//	init_rtc();
+	init_rtc();
 	init_led();
 	init_buttons();
 	init_i2c();
@@ -81,55 +71,55 @@ int main(void) {
 
 	/* create tasks */
     /* Priority 5 Tasks */
-//	BaseType_t rtcReturned = xTaskCreate(prvRTC_Task, "RTC", configMINIMAL_STACK_SIZE, NULL, 4, NULL);
+	BaseType_t rtcReturned = xTaskCreate(prvRTC_Task, "RTC", configMINIMAL_STACK_SIZE, NULL, 5, &thRTC);
 	// tubes task isn't needed, update_tubes() can be called from RTC task
-	BaseType_t tubesReturned = xTaskCreate( prvUpdateTubes, "UpdateTubes", configMINIMAL_STACK_SIZE, (void *)NULL, 4, NULL);
+//	BaseType_t tubesReturned = xTaskCreate( prvUpdateTubes, "UpdateTubes", configMINIMAL_STACK_SIZE, (void *)NULL, 4, NULL);
 
 	/* Priority 4 Tasks */
 //	BaseType_t PWMreturned = xTaskCreate( prvChangePWM, "PWM Change", configMINIMAL_STACK_SIZE, (void *)NULL, 5, NULL);
-	BaseType_t Lightreturned = xTaskCreate( prvLight_Task, "LightSensor", configMINIMAL_STACK_SIZE, (void *)NULL, 4, NULL);
 
 	/* Priority 3 Tasks */
-//	BaseType_t tempReturned = xTaskCreate( prvTemperature_Task, "TempSensor", configMINIMAL_STACK_SIZE, NULL, 3, NULL);
+	BaseType_t tempReturned = xTaskCreate( prvTemperature_Task, "TempSensor", configMINIMAL_STACK_SIZE, NULL, 3, NULL);
+	BaseType_t Lightreturned = xTaskCreate( prvLight_Task, "LightSensor", configMINIMAL_STACK_SIZE, (void *)NULL, 3, NULL);
 	BaseType_t BLERXreturned = xTaskCreate( prvBLE_Receive_Task, "BLE RX", configMINIMAL_STACK_SIZE, (void *)NULL, 3, NULL);
 	BaseType_t BLETXreturned = xTaskCreate( prvBLE_Send_Task, "BLE TX", configMINIMAL_STACK_SIZE, (void *)NULL, 3, NULL);
 
 	/* Priority 2 Tasks */
 
 	/* Priority 1 Tasks*/
-	BaseType_t blinkyReturned = xTaskCreate( prvBlink_LED, "Blinky", configMINIMAL_STACK_SIZE, (void *)NULL, 2, NULL);
+	BaseType_t blinkyReturned = xTaskCreate( prvBlink_LED, "Blinky", configMINIMAL_STACK_SIZE, (void *)NULL, 1, NULL);
 
 
 	/* check that tasks were created successfully */
-//	if(rtcReturned != pdPASS) {
-//		toggle_error_led();
-//		while(1);
-//	}
-//
-//    if(tempReturned != pdPASS) {
-//		toggle_error_led();
-//    	while(1);
-//    }
-//
-//    if(blinkyReturned != pdPASS) {
-//		toggle_error_led();
-//    	while(1);
-//    }
-//
-//    if(BLERXreturned != pdPASS) {
-//		toggle_error_led();
-//    	while(1);
-//    }
-//
-//    if(BLETXreturned != pdPASS) {
-//		toggle_error_led();
-//    	while(1);
-//    }
-//
-//    if(Lightreturned != pdPASS) {
-//		toggle_error_led();
-//    	while(1);
-//    }
+	if(rtcReturned != pdPASS) {
+		toggle_error_led();
+		while(1);
+	}
+
+    if(tempReturned != pdPASS) {
+		toggle_error_led();
+    	while(1);
+    }
+
+    if(blinkyReturned != pdPASS) {
+		toggle_error_led();
+    	while(1);
+    }
+
+    if(BLERXreturned != pdPASS) {
+		toggle_error_led();
+    	while(1);
+    }
+
+    if(BLETXreturned != pdPASS) {
+		toggle_error_led();
+    	while(1);
+    }
+
+    if(Lightreturned != pdPASS) {
+		toggle_error_led();
+    	while(1);
+    }
 
 
     /* initialize SysTick timer to 10ms ticks */
@@ -153,7 +143,7 @@ void vApplicationIdleHook( void )
 {
     for( ;; ) {
     	// TODO: check that everything is in order, then put into low-power mode
-    	__WFI();
+//    	__WFI();
     }
 }
 /*-----------------------------------------------------------*/

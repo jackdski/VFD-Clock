@@ -43,31 +43,27 @@ extern uint32_t light_value;
 extern uint16_t display_brightness;
 extern uint8_t usart_msg;
 extern SemaphoreHandle_t sRTC;
+extern TaskHandle_t thRTC;
 
-#define RTC_MAX_WAIT_TICKS		5
+#define RTC_MAX_WAIT_TICKS		pdMS_TO_TICKS(100)
 
 
-/*	T A S K   D E C L A R A T I O N S   */
+/*	T A S K S   */
 
 /* if given the semaphore by the RTC Interrupt Handler, read the time and update the tube display */
 void prvRTC_Task(void *pvParameters) {
-	static TickType_t delay_time = pdMS_TO_TICKS( 1000 );
-	const TickType_t delay_time_until = 100;  // 100 tick cycles
-
 	TickType_t xLastWakeTime;
 	xLastWakeTime = xTaskGetTickCount();
+	static uint32_t thread_notification;
 
 	for( ;; ) {
-		vTaskDelayUntil( &xLastWakeTime, delay_time_until);
-		if(xSemaphoreTake( sRTC, RTC_MAX_WAIT_TICKS ) == pdTRUE) {	// take the semaphore within 5 ticks
+		toggle_rtc_led();
+		thread_notification = ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
+		if(thread_notification != 0) {
 			hours = read_rtc_hours();
 			minutes = read_rtc_minutes();
 			seconds = read_rtc_seconds();
-	//		if(old_seconds == seconds)
-			toggle_rtc_led();
-			/* update tubes */
-			update_time(hours, minutes, seconds);
-//			vTaskDelay(delay_time);
+			update_time(hours, minutes, seconds);	/* update tubes */
 		}
 	}
 }
@@ -101,7 +97,6 @@ void prvLight_Task(void *pvParameters) {
 
 #ifdef USE_BOTH_PHOTORESISTORS
 		select_adc_channel(PHOTORESISTOR_RIGHT);
-//		light_sample_two = (light_sample + sample_adc()) / 2;
 		light_sample_two = sample_adc();
 		light_sample = (light_sample + light_sample_two) / 2;
 #endif
@@ -132,7 +127,6 @@ void prvBLE_Receive_Task(void *pvParameters) {
 	static TickType_t delay_time = pdMS_TO_TICKS( 500 );  // 500ms
 	for( ;; ) {
 		vTaskDelay(delay_time);
-//		if();
 	}
 
 }

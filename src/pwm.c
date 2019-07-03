@@ -144,7 +144,7 @@ void trigger_dimming_timer(uint32_t old_brightness, uint32_t new_brightness) {
 
 	target_brightness = new_brightness;
 
-	TIM2->ARR = (uint16_t)DIMMING_50MS;	// 1 second
+	TIM2->ARR = (uint16_t)DIMMING_50MS;		// 1 second
 	TIM2->CCR1 = (uint16_t)DIMMING_50MS;	// init to 0
 
 	TIM2->CCMR1 &= ~(TIM_CCMR1_OC1M);
@@ -158,11 +158,11 @@ void trigger_dimming_timer(uint32_t old_brightness, uint32_t new_brightness) {
 
 	/* enable TIM2 interrupts */
 	NVIC_EnableIRQ(TIM2_IRQn);
+	NVIC_SetPriority(TIM2_IRQn, 3);
 }
 
 void TIM2_IRQHandler() {
 	if(TIM2->SR & TIM_SR_UIF) {
-		toggle_error_led();
 		// update current display brightness
 		display_brightness = (TIM14->CCR1 * 100) / (uint16_t)PWM_FREQUENCY;
 
