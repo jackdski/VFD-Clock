@@ -8,7 +8,7 @@
 #ifndef FREERTOSCONFIG_H_
 #define FREERTOSCONFIG_H_
 
-//#include <stdint.h>
+#include <stdint.h>
 //extern uint32_t SystemCoreClock;
 
 #include "stm32f0xx_it.h"
@@ -43,6 +43,7 @@
 #define configUSE_COUNTING_SEMAPHORES	1
 #define configUSE_TASK_NOTIFICATIONS	1
 #define configUSE_TICKLESS_IDLE			1
+#define configMESSAGE_BUFFER_LENGTH_TYPE			size_t//uint8_t
 
 /* run time stats */
 extern void init_timing_stats_timer(void);

@@ -249,10 +249,23 @@ void update_minutes(uint8_t decMins, uint8_t decSecs) {
     srclr_latch_low();	 // set latch (!SRCLR) low again
 }
 
+/* places a value in the shift register
+ *  @param uint8_t tubeNumber: 1-6
+ *  @param uint8_t val: 0 (off) or 1 (on)
+ * */
+void shift_out(uint8_t tubeNumber, uint8_t val) {
+    uint8_t i;
+    for(i = 0; i < 8; i++) {
+        assign_pin(tubeNumber, (val & (1 << i))); // (SER) for tube 1
+        pulse_clock();
+    }
+    rclk_low();
+}
+
 /* updates hours, minutes, and seconds */
 void update_time(uint8_t decHrs, uint8_t decMins, uint8_t decSecs) {
-	disable_output(ALL_TUBES);
-	srclr_latch_low();	// latch (!SRCLR) low
+//	disable_output(ALL_TUBES);
+//	srclr_latch_low();	// latch (!SRCLR) low
 
 	/* comment to use user-defined values */
 #ifdef TUBE_TESTING
@@ -297,16 +310,12 @@ void update_time(uint8_t decHrs, uint8_t decMins, uint8_t decSecs) {
     }
     rclk_low();
 
-//    for(i = 1; i < 7; i++)
-//    	assign_pin(i, 0);
-
     srclr_latch_low();	// set latch (!SRCLR0) low again
-	enable_output(ALL_TUBES);
+//	enable_output(ALL_TUBES);
 }
 
-
 /* updates the temperature to display '  ##oF  ' */
-void update_temperature(uint8_t temperature) {
+void display_temperature(uint8_t temperature) {
     uint8_t temperatureOne = dec_to_sev_seg(temperature / 10);
     uint8_t temperatureTwo = dec_to_sev_seg(temperature % 10);
     uint8_t degrees = DEGREES;
@@ -314,30 +323,51 @@ void update_temperature(uint8_t temperature) {
 
     srclr_latch_high();	// latch (!SRCLR), set high
 
-    // first two blank
-    shift_out(1, 0);
-    shift_out(2, temperatureOne);
-    shift_out(3, temperatureTwo);
-    shift_out(4, degrees);           // degrees
-    shift_out(5, letter_f);          // F
-    shift_out(6, 0);
+    // write the values to the tubes
+    uint8_t i;
+    for(i = 0; i < 8; i++) {
+    	/* set pins high or low to set segment high or low */
+        assign_pin(1, (0 & (1 << i))); // (SER) for tube 1
+        assign_pin(2, (0 & (1 << i))); // (SER) for tube 2
+        assign_pin(3, (temperatureOne & (1 << i))); // (SER) for tube 3
+        assign_pin(4, (temperatureTwo & (1 << i))); // (SER) for tube 4
+        assign_pin(5, (degrees & (1 << i))); // (SER) for tube 5
+        assign_pin(6, (letter_f & (1 << i))); // (SER) for tube 6
+
+        /* force shift */
+        pulse_clock();
+    }
+    rclk_low();
 
     srclr_latch_low();	// set latch (!SRCLR0) low again
 }
 
-/* places a value in the shift register
- *  @param uint8_t tubeNumber: 1-6
- *  @param uint8_t val: 0 (off) or 1 (on)
- * */
-void shift_out(uint8_t tubeNumber, uint8_t val) {
+void display_date(void) {
+	uint8_t m_one = dec_to_sev_seg((RTC->DR & RTC_DR_MT));
+	uint8_t m_two = dec_to_sev_seg((RTC->DR & RTC_DR_MU));
+	uint8_t d_one = dec_to_sev_seg((RTC->DR & RTC_DR_DT));
+	uint8_t d_two = dec_to_sev_seg((RTC->DR & RTC_DR_DU));
+
+    srclr_latch_high();	// latch (!SRCLR), set high
+
+    // write the values to the tubes
     uint8_t i;
     for(i = 0; i < 8; i++) {
-        assign_pin(tubeNumber, (val & (1 << i))); // (SER) for tube 1
+    	/* set pins high or low to set segment high or low */
+        assign_pin(1, (m_one & (1 << i)));	// (SER) for tube 1
+        assign_pin(2, (m_two & (1 << i)));	// (SER) for tube 2
+        assign_pin(3, (0 & (1 << i))); 		// (SER) for tube 3
+        assign_pin(4, (0 & (1 << i))); 		// (SER) for tube 4
+        assign_pin(5, (d_one & (1 << i)));	// (SER) for tube 5
+        assign_pin(6, (d_two & (1 << i)));	// (SER) for tube 6
+
+        /* force shift */
         pulse_clock();
     }
     rclk_low();
-}
 
+    srclr_latch_low();	// set latch (!SRCLR0) low again
+}
 void prvUpdateTubes(void *pvParameters) {
 	static TickType_t delay_time = pdMS_TO_TICKS( 1000 ); // 1s
 	for( ;; ) {

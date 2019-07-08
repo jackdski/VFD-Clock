@@ -27,6 +27,10 @@ void change_rtc_minutes(uint8_t new_minutes);
 
 void change_rtc_seconds(uint8_t new_seconds);
 
+void change_rtc_ampm(uint8_t new_ampm);
+
+void change_rtc_time(uint8_t hours, uint8_t minutes, uint8_t seconds, uint8_t ampm);
+
 /* Year, month, day, and weekday read/write */
 
 uint32_t read_rtc_calender(void);
@@ -46,5 +50,7 @@ void change_rtc_month(uint8_t new_month);
 void change_rtc_day(uint8_t new_day);
 
 void change_rtc_day_of_week(uint8_t new_dow);
+
+void change_rtc_date(uint8_t month, uint8_t day);
 
 #endif /* RTC_H_ */

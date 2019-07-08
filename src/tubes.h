@@ -55,17 +55,20 @@ void update_seconds(uint8_t decSecs);
 /* updates only the two tubes related to minutes */
 void update_minutes(uint8_t decMins, uint8_t decSecs);
 
-/* updates hours, minutes, and seconds */
-void update_time(uint8_t decHrs, uint8_t decMins, uint8_t decSecs);
-
-/* updates the temperature to display '  ##oF  ' */
-void update_temperature(uint8_t temperature);
-
 /* places a value in the shift register
  *  @param uint8_t tubeNumber: 1-6
  *  @param uint8_t val: 0 (off) or 1 (on)
  * */
 void shift_out(uint8_t tubeNumber, uint8_t val);
+
+/* updates hours, minutes, and seconds */
+void update_time(uint8_t decHrs, uint8_t decMins, uint8_t decSecs);
+
+/* displays the temperature '  ##oF  ' */
+void display_temperature(uint8_t temperature);
+
+/* displays the date 'MM  DD' */
+void display_date(void);
 
 void prvUpdateTubes(void *pvParameters);
 

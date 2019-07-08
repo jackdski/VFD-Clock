@@ -84,15 +84,15 @@ void init_rtc(void) {
 	NVIC_SetPriority(RTC_IRQn, 0);
 }
 
-/* handles interrupts from RTC's Alarm A */
+/* handles interrupts from RTC's Alarm A and
+ * notifies the RTC task to read the TR registers and update the display */
 void RTC_IRQHandler(void) {
 	if(RTC->ISR & RTC_ISR_ALRAF) {
-		toggle_error_led();
 		BaseType_t xHigherPriorityTaskWoken = pdFALSE;	// default value is pdFALSES
 		configASSERT(thRTC != NULL);
 		vTaskNotifyGiveFromISR(thRTC, &xHigherPriorityTaskWoken );
-		RTC->ISR &= ~RTC_ISR_ALRAF;		// clear flag;
-		EXTI->PR |= (EXTI_PR_PR17);
+		RTC->ISR &= ~RTC_ISR_ALRAF;		// clear RTC->ISR flag;
+		EXTI->PR |= (EXTI_PR_PR17);		// clear Pending External Interrupt Flag
 		portYIELD_FROM_ISR( xHigherPriorityTaskWoken );
 	}
 }
@@ -122,18 +122,45 @@ uint8_t inline read_rtc_seconds(void) {
 }
 
 void inline change_rtc_hours(uint8_t new_hours) {
-	RTC->TR |= ((new_hours / 10) & RTC_TR_HT);
-	RTC->TR |= ((new_hours % 10) & RTC_TR_HU);
+	RTC->TR &= ~(RTC_TR_HT | RTC_TR_HU);
+	RTC->TR |= ((new_hours / 10) << RTC_TR_HT_Pos);
+	RTC->TR |= ((new_hours % 10) << RTC_TR_HU_Pos);
 }
 
 void inline change_rtc_minutes(uint8_t new_minutes) {
-	RTC->TR |= ((new_minutes / 10) & RTC_TR_MNT);
-	RTC->TR |= ((new_minutes % 10) & RTC_TR_MNU);
+	RTC->TR &= ~(RTC_TR_MNT | RTC_TR_MNU);
+	RTC->TR |= ((new_minutes / 10) << RTC_TR_MNT_Pos);
+	RTC->TR |= ((new_minutes % 10) << RTC_TR_MNU_Pos);
 }
 
 void inline change_rtc_seconds(uint8_t new_seconds) {
-	RTC->TR |= ((new_seconds / 10) & RTC_TR_ST);
-	RTC->TR |= ((new_seconds % 10) & RTC_TR_SU);
+	RTC->TR &= ~(RTC_TR_ST | RTC_TR_SU);
+	RTC->TR |= ((new_seconds / 10) & RTC_TR_ST_Pos);
+	RTC->TR |= ((new_seconds % 10) & RTC_TR_SU_Pos);
+}
+
+void inline change_rtc_ampm(uint8_t new_ampm) {
+	if(new_ampm == 1) // PM
+		RTC->TR |= (RTC_TR_PM);
+	else
+		RTC->TR &= ~(RTC_TR_PM);
+}
+
+void change_rtc_time(uint8_t hours, uint8_t minutes, uint8_t seconds, uint8_t ampm) {
+	RTC->WPR = 0xCA;
+	RTC->WPR = 0x53;
+	RTC->ISR |= RTC_ISR_INIT;
+	while ((RTC->ISR & RTC_ISR_INITF) != RTC_ISR_INITF);
+
+	// write new values
+	change_rtc_hours(hours);
+	change_rtc_minutes(minutes);
+	change_rtc_seconds(seconds);
+	change_rtc_ampm(ampm);
+
+	RTC->ISR &=~ RTC_ISR_INIT;
+	RTC->WPR = 0xFE;
+	RTC->WPR = 0x64;
 }
 
 /* Year, month, day, and weekday read/write */
@@ -162,26 +189,38 @@ uint8_t inline read_rtc_day_of_week(void) {
 }
 
 void inline change_rtc_year(uint8_t new_year) {
-	RTC->DR |= ((new_year / 10) & RTC_DR_YT);
-	RTC->DR |= ((new_year % 10) & RTC_DR_YU);
+	RTC->DR &= ~(RTC_DR_YT | RTC_DR_YU);
+	RTC->DR |= ((new_year / 10) << RTC_DR_YT_Pos);
+	RTC->DR |= ((new_year % 10) << RTC_DR_YU_Pos);
 }
 
 void inline change_rtc_month(uint8_t new_month) {
-	RTC->DR |= ((new_month / 10) & RTC_DR_MT);
-	RTC->DR |= ((new_month % 10) & RTC_DR_MU);
+	RTC->DR &= ~(RTC_DR_MT | RTC_DR_MU);
+	RTC->DR |= ((new_month / 10) << RTC_DR_MT_Pos);
+	RTC->DR |= ((new_month % 10) << RTC_DR_MU_Pos);
 }
 
 void inline change_rtc_day(uint8_t new_day) {
-	RTC->DR |= ((new_day / 10) & RTC_DR_DT);
-	RTC->DR |= ((new_day % 10) & RTC_DR_DU);
+	RTC->DR &= ~(RTC_DR_DT | RTC_DR_DU);
+	RTC->DR |= ((new_day / 10) << RTC_DR_DT_Pos);
+	RTC->DR |= ((new_day % 10) << RTC_DR_DU_Pos);
 }
 
 void inline change_rtc_day_of_week(uint8_t new_dow) {
 	RTC->DR |= (new_dow & RTC_DR_WDU);
 }
 
+void change_rtc_date(uint8_t month, uint8_t day) {
+	RTC->WPR = 0xCA;
+	RTC->WPR = 0x53;
+	RTC->ISR |= RTC_ISR_INIT;
+	while ((RTC->ISR & RTC_ISR_INITF) != RTC_ISR_INITF);
 
+	// write new values
+	change_rtc_day(day);
+	change_rtc_month(month);
 
-
-
-
+	RTC->ISR &=~ RTC_ISR_INIT;
+	RTC->WPR = 0xFE;
+	RTC->WPR = 0x64;
+}

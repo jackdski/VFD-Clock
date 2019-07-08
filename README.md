@@ -5,8 +5,8 @@ This project aims to create a unique display for time, date, and temperature dat
     
 To accomplish this, several goals were outlined:
 - Use FreeRTOS to gain experience with RTOS's
-- Use Bluetooth Low-Energy to wirelessly communicate instructions and auto-sync time and date data from an iPhone
-    - Manually select the time
+- Use Bluetooth Low-Energy to wirelessly communicate instructions time and date data from an iPhone
+    - Update the time
     - Turn off auto-brightness adjustments
     - Select whether to display temperature or the date temporarily
     - Turn the VFD display on or off and put into low-power mode
@@ -24,10 +24,19 @@ Progress:
 - [x] Write to shift registers
 - [x] Interrupts for buttons and switches
 - [ ] Configure time/date using buttons and switches
-- [ ] Implement semaphores for RTC Alarm A
+- [x] Implement task notification from RTC Alarm A to update tubes
 - [x] Configure RTC Alarm A for 1Hz interrupt
 - [x] Enable Low-Power mode in Idle Task
 - [ ] Deep Sleep (turn off tubes, disable everything except for RTC)
 - [x] USART driver
-- [ ] Communicate to iPhone over BLE
-- [ ] iPhone app
+- [ ] Communicate with iPhone over BLE
+	- [x] Control Brightness
+		- [x] Turn autobrightness on and off
+		- [x] Choose a brightness value (0-99)
+	- [x] Change date
+	- [x] Change time
+	- [x] Create 5s software timer
+	- [x] Display date for 5 seconds
+	- [x] Display temperature for 5 seconds
+	- [ ] Turn device off
+
