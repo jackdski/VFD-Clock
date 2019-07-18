@@ -15,10 +15,6 @@
 #define BRIGHTNESS_HIGH		70
 #define BRIGHTNESS_MAX		99
 
-/* DIMMING */
-#define DIMMING_ONE_SEC		10000	// 10k * 10kHz = 1s
-#define DIMMING_50MS		500
-
 void init_pwm(void);
 
 /* @param uint16_t duty_cycle: 0%-100% */

@@ -21,6 +21,7 @@
 #include "pwm.h"
 #include "adc.h"
 #include "rtc.h"
+#include "tsc.h"
 
 /*	T A S K S   */
 #include "sensor_tasks.h"
@@ -41,6 +42,9 @@ CircBuf_t * RX_Buffer;
 TaskHandle_t thRTC = NULL;
 TaskHandle_t thBrightness_Adj = NULL;
 TaskHandle_t thAutoBrightAdj = NULL;
+
+/* S O F T W A R E   T I M E R S   */
+TimerHandle_t five_sec_timer = NULL;
 
 /*	G L O B A L   V A R I A B L E S   */
 volatile System_State_E system_state = Clock;
@@ -74,6 +78,7 @@ int main(void) {
 	configure_shift_pins();
 	init_pwm();
 	init_adc();
+	init_tsc();
 
     /* Priority 5 Tasks */
 	BaseType_t rtcReturned = xTaskCreate(prvRTC_Task, "RTC", configMINIMAL_STACK_SIZE, NULL, 5, &thRTC);
@@ -131,6 +136,9 @@ int main(void) {
     	while(1);
     }
 
+    /* initialize software timer */
+	five_sec_timer = xTimerCreate("5s Timer", pdMS_TO_TICKS(5000), pdFALSE, 0, five_sec_timer_callback);
+
     /* initialize SysTick timer to 10ms ticks */
     SysTick_Config(60000);
 
@@ -154,7 +162,9 @@ void vApplicationIdleHook( void )
 {
     for( ;; ) {
     	// TODO: check that everything is in order, then put into low-power mode
-//    	__WFI();
+    	if(system_state == Switch_Sleep || system_state == BLE_Sleep) {
+    		//    	__WFI();
+    	}
     }
 }
 /*-----------------------------------------------------------*/

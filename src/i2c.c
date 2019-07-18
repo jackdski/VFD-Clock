@@ -19,80 +19,6 @@
 //#define	USE_I2C1
 
 
-//void init_i2c(void) {
-//	/*  setup GPIO, AF1 on PF0 and PF1
-//	 *
-//	 * 	PF0 -> SDA
-//	 * 	PF1 -> SCL
-//	 */
-//	RCC->AHBENR |= RCC_AHBENR_GPIOFEN; /* Enable Peripheral clock on GPIOF */
-//	RCC->APB1ENR |= RCC_APB1ENR_I2C1EN; // enable I2C clock
-//
-//	/* make sure that peripheral is first disabled */
-//	I2C1->CR1 &= ~(I2C_CR1_PE);
-//
-//	/* select alternate function mode */
-//	GPIOF->MODER = (GPIOF->MODER & ~(GPIO_MODER_MODER0 | GPIO_MODER_MODER1))
-//			| (GPIO_MODER_MODER0_1 | GPIO_MODER_MODER1_1);
-//
-//	// select AF1 on PF0 and PF1
-//	GPIOF->AFR[0] |=  ((0x01 << GPIO_AFRL_AFRL0_Pos)
-//				  	  |(0x01 << GPIO_AFRL_AFRL1_Pos)); // AFRL (Ports 0-7)
-//
-//	/* Control Register 1 */
-//	I2C1->CR1 &=   ~( I2C_CR1_DNF		// disable Digital Noise Filter
-////					| I2C_CR1_PECEN 	// disable PEC calculation
-////					| I2C_CR1_ALERTEN	// disable SMBus alert
-//					| I2C_CR1_SMBDEN	// disable SMBus Device Default address enable
-//					| I2C_CR1_SMBHEN	// disable SMBus Host address enable
-////					| I2C_CR1_SBC		// disable Slave Byte Control
-////					| I2C_CR1_RXDMAEN	// disable DMA reception requests
-////					| I2C_CR1_TXDMAEN	// disable DMA transmission requests
-//					| I2C_CR1_ANFOFF	// enable Analog noise filter
-////					| I2C_CR1_STOPIE	// disable STOP interrupt
-////					| I2C_CR1_NACKIE	// disable NACK interrupt
-////					| I2C_CR1_ADDRIE	// disable Address Match interrupt
-//				);
-//
-//	I2C1->CR1 |= (I2C_CR1_DNF & 0b0000);  // disable digital noise filter for WUPEN
-//
-////	I2C1->CR1 |= 	( I2C_CR1_WUPEN			// enable wake up from Stop mode
-////					| I2C_CR1_NOSTRETCH		// disable clock stretching
-////					| I2C_CR1_ERRIE			// enable Errors interrupt
-////					| I2C_CR1_TCIE			// enable Transfer Complete interrupt
-////					| I2C_CR1_RXIE			// enable RX interrupt
-////					| I2C_CR1_TXIE			// enable TX interrupt
-////				);
-//
-//
-//	/* Conrol Register 2 */
-//	I2C1->CR2 &= 	~( I2C_CR2_AUTOEND	// TC flag is set when NBYTES data is transferred
-//					| I2C_CR2_RELOAD	// transfer is completed after the NBYTES data transfer
-//					| I2C_CR2_NACK		// send an ACK after current received byte
-//					| I2C_CR2_RD_WRN	// init to requesting a write transfer
-//					| I2C_CR2_ADD10		// operate in 7-bit addressing mode
-//				);
-//
-//	I2C1->CR2 &= ~(I2C_CR2_SADD);		// clear slave address
-//	// I2C1->CR2 |= ADDRESS;		// write a new slave address
-//
-////	I2C1->CR2 |= ( I2C_CR2_HEAD10R);	// master only sends 1st 7 bits of 10 bit address, followed by READ direction
-//
-//
-//	/* OAR1 - Own Address 1 */
-////	I2C1->OAR1 = (I2C_OAR1_OA1 & 0x12);	// set own address 1 to 0x12 (0b001_0010)
-////	I2C1->OAR1 &= ~(I2C_OAR1_OA1MODE);	// set to 7-bit address
-////	I2C1->OAR1 |= I2C_OAR1_OA1EN;		// enable Own Address 1
-//
-//
-//	/* Timing */
-//	I2C1->TIMINGR &= (0x00000000);		// Reset
-//	I2C1->TIMINGR |= 0x00201D2B;		// 100kHz? Need to check with STM32CubeMX tool
-//
-//	/* Enable I2C1 peripheral */
-//	I2C1->CR1 |= I2C_CR1_PE;
-//}
-
 void init_i2c(void) {
 #ifdef	USE_I2C1
 //	I2C1->CR1 &= ~I2C_CR1_PE;
@@ -163,26 +89,10 @@ void init_i2c(void) {
 	I2C2->TIMINGR = (uint32_t)I2C_TIMING;
 	I2C2->CR2 &= ~(I2C_CR2_ADD10); // select 7-bit address mode
 	I2C2->CR1 |= I2C_CR1_PE;
-
-//	I2C2->CR2 |= (0x18 << 1);
-//	I2C2->CR2 &= ~(I2C_CR2_RD_WRN);
-//	I2C2->CR2 |= (1 << 16);
-
-//	I2C2->CR2 |= I2C_CR2_START;
-//	while(I2C2->CR2 & I2C_CR2_START);
-//	I2C2->TXDR = 0xAA;
-//	while(!(I2C2->ISR & I2C_ISR_TXE));
-
-//	I2C2->CR2 |= I2C_CR2_STOP;
-//	while(I2C2->CR2 & I2C_CR2_STOP);
-
-
 #endif
 }
 
 void i2c_write_reg(uint8_t device, uint8_t reg, uint8_t data) {
-	I2C1->CR2 = 0x00000000;
-
 #ifdef USE_I2C1
 	while((I2C1->ISR & I2C_ISR_BUSY) == I2C_ISR_BUSY);
 #else
@@ -191,10 +101,25 @@ void i2c_write_reg(uint8_t device, uint8_t reg, uint8_t data) {
 
 	i2c_change_sadd(device);
 	i2c_change_nbytes(1);
-//	i2c_send_start();
+	i2c_send_start();
 	i2c_send_byte(data);
 	i2c_send_stop();
+}
 
+uint8_t i2c_read_reg(uint8_t reg) {
+	while((I2C2->ISR & I2C_ISR_BUSY) == I2C_ISR_BUSY);
+	i2c_set_tx_direction();			// set to TX direction
+//	I2C1->CR2 &= ~I2C_CR2_AUTOEND;
+	i2c_change_nbytes(1);			// send 1 byte
+
+	i2c_send_start();				// send start bit and address
+	i2c_send_byte(reg);				// send register
+	i2c_change_nbytes(1);
+	i2c_set_rx_direction();			// set to RX direction
+	i2c_send_start();				// send repeated start
+	uint8_t data = i2c_read_byte();
+	i2c_send_stop();
+	return data;
 }
 
 /* Send a start byte on the I2C1 line */

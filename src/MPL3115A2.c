@@ -57,3 +57,67 @@ void read_config_mpl() {
 	uint8_t lower_byte = i2c_read_byte();
 	i2c_send_stop();
 }
+
+void trigger_sample_mpl(void) {
+    // get and set OST low
+    uint8_t setting = i2c_read_reg((uint8_t)CTRL_REG1);
+    setting &= ~(1 << 1);                   // clear OST bit
+    i2c_write_reg(MPL3115A2, CTRL_REG1, setting);
+
+    // set OST high again
+    setting = i2c_read_reg(CTRL_REG1);
+    setting |= (1 << 1);        // set OST bit
+    i2c_write_reg(MPL3115A2, CTRL_REG1, setting);
+}
+
+uint8_t read_temp_c(void) {
+	trigger_sample_mpl(); // trigger a new temp sample
+    uint8_t status = 0;
+    uint8_t temp_c;
+
+    // wait for new temp data
+    while((status & 0x08) == 0) {
+        status = i2c_read_reg(OUT_T_MSB);
+    }
+    temp_c = i2c_read_reg(OUT_T_MSB);
+    return temp_c;
+}
+
+uint8_t convert_to_fahrenheit(uint8_t temp_c) {
+    return (temp_c * 9) / 5 + 32;
+}
+
+
+uint8_t read_temp_f() {
+    uint8_t final_temp = convert_to_fahrenheit(read_temp_c());
+    return final_temp;
+}
+
+void set_mode_standby() {
+    uint8_t setting = i2c_read_reg(CTRL_REG1);  // read setting
+    setting &= ~(1 << 0);                       // set standby bit
+    i2c_write_reg(MPL3115A2, CTRL_REG1, setting);          // write to reg
+}
+
+void set_mode_active() {
+    uint8_t setting = i2c_read_reg(CTRL_REG1);  // read setting
+    setting |= (1 << 0);                        // set active bit
+    i2c_write_reg(MPL3115A2, CTRL_REG1, setting);          // write to reg
+}
+
+
+void set_oversample_rate(uint8_t sample_rate) {
+  if(sample_rate > 7) sample_rate = 7;
+  sample_rate <<= 3;
+  uint8_t setting = i2c_read_reg(CTRL_REG1);    // read setting
+  setting &= 0b11000111;                        // clear out OS bits
+  setting |= sample_rate;                       // use new OS bits
+  i2c_write_reg(MPL3115A2, CTRL_REG1, setting);            // write to reg
+}
+
+
+void enable_event_flags() {
+  i2c_write_reg(MPL3115A2, PT_DATA_CFG, 0x07); // Enable all three pressure and temp event flags
+}
+
+

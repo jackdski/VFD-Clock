@@ -44,7 +44,7 @@ void init_sysclock(void) {
 					| RCC_AHBENR_GPIOEEN
 					| RCC_AHBENR_GPIOFEN
 					| RCC_AHBENR_TSCEN
-		);
+					| RCC_AHBENR_TSEN);
 
 	RCC->APB1ENR =  ( RCC_APB1ENR_TIM2EN
 					| RCC_APB1ENR_TIM14EN
@@ -52,16 +52,14 @@ void init_sysclock(void) {
 					| RCC_APB1ENR_USART3EN
 					| RCC_APB1ENR_I2C1EN
 					| RCC_APB1ENR_I2C2EN
-					| RCC_APB1ENR_PWREN
-		);
+					| RCC_APB1ENR_PWREN);
 
 	RCC->APB2ENR =  ( RCC_APB2ENR_ADCEN
 					| RCC_APB2ENR_TIM1EN
 					| RCC_APB2ENR_USART1EN
 					| RCC_APB2ENR_TIM15EN
 					| RCC_APB2ENR_TIM16EN
-					| RCC_APB2ENR_SYSCFGEN
-		);
+					| RCC_APB2ENR_SYSCFGEN);
 
 //	/* Real-Time Clock */
 //	RCC->BDCR =		( RCC_BDCR_LSEON	// LSE oscillator enable
@@ -77,8 +75,7 @@ void init_sysclock(void) {
 	RCC->CFGR3 = 	( RCC_CFGR3_USART1SW_HSI	// 8MHz
 					| RCC_CFGR3_I2C1SW_HSI		// 8MHz
 					| RCC_CFGR3_USART2SW_HSI	// 8MHz
-					| RCC_CFGR3_USART3SW_HSI	// 8MHz
-		);
+					| RCC_CFGR3_USART3SW_HSI);	// 8MHz
 
 	RCC->CIR = 0;  // clear Clock Interrupt Register
 

@@ -23,8 +23,8 @@
 #define xPortSysTickHandler 	SysTick_Handler
 
 #define configUSE_PREEMPTION			1
-#define configUSE_IDLE_HOOK				1
-#define configUSE_TICK_HOOK				1
+#define configUSE_IDLE_HOOK				0
+#define configUSE_TICK_HOOK				0
 #define configCPU_CLOCK_HZ				( 8000000 )
 #define configTICK_RATE_HZ				( ( TickType_t ) 100 )
 #define configMAX_PRIORITIES			( 5 )
@@ -57,12 +57,13 @@ extern void init_timing_stats_timer(void);
 
 /* Software timer definitions. */
 #define configUSE_TIMERS				1
-#define configTIMER_TASK_PRIORITY		( 2 )
+#define configTIMER_TASK_PRIORITY		( 3 )
 #define configTIMER_QUEUE_LENGTH		5
 #define configTIMER_TASK_STACK_DEPTH	( 80 )
 
 /* Low Power Definitions */
 #define configEXPECTED_IDLE_TIME_BEFORE_SLEEP 	2
+#define portSUPPRESS_TICKS_AND_SLEEP( xIdleTime )	vApplicationSleep( xIdleTime )
 //#define configPRE_STOP_PROCESSING()
 //#define configPOST_STOP_PROCESSING()				init_sysclock()
 

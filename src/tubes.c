@@ -30,6 +30,7 @@ extern int8_t temperature;		/* -128 - 127 */
 /*	D E F I N E S   */
 //#define	TUBE_TESTING		// only outputs 0xAA on tubes
 #define DISPLAY_BINARY	1		// display BCD values instead of VFD-Tube mapped
+#define DEMO
 
 
 /* Binary values that will display the corresponding
@@ -55,18 +56,27 @@ extern int8_t temperature;		/* -128 - 127 */
 #define NSRCLR		11	// PA11
 #define SRCLK		9	// PC9
 #define RCLK		8	// PC8
+
+#ifdef DEMO
 #define SERIAL1		7	// PC7
 #define SERIAL2		6	// PC6
 #define SERIAL3		15	// PB15
 #define SERIAL4		14	// PB14
 #define SERIAL5		13	// PB13
 #define SERIAL6		12	// PB12
-
+#else
+#define SERIAL1		12	// PB12
+#define SERIAL2		13	// PB13
+#define SERIAL3		14	// PB14
+#define SERIAL4		15	// PB15
+#define SERIAL5		6	// PC6
+#define SERIAL6		7	// PC7
+#endif
 
 /* Configures the shift registers to be used */
 void configure_shift_pins() {
 	/* AHB Peripheral Clock Enable Registers */
-	RCC->AHBENR =	( RCC_AHBENR_GPIOAEN | RCC_AHBENR_GPIOBEN | RCC_AHBENR_GPIOCEN);
+	RCC->AHBENR |=	( RCC_AHBENR_GPIOAEN | RCC_AHBENR_GPIOBEN | RCC_AHBENR_GPIOCEN);
 
 	/* set to LOW */
 	GPIOA->ODR &= ~(GPIO_ODR_8 | GPIO_ODR_11);
@@ -121,47 +131,6 @@ void rclk_low(void) {
 	GPIOC->ODR &= ~(1 << RCLK);
 }
 
-/* 1-6 for select tubes, 7 for all */
-void disable_output(uint8_t target) {
-	/* Obsolete */
-//    if(target == 7) {
-//    	// set all SERIAL pins high
-//        GPIOB->ODR |= (GPIO_ODR_3 | GPIO_ODR_4 | GPIO_ODR_5);
-//        GPIOA->ODR |= (GPIO_ODR_2 | GPIO_ODR_3 | GPIO_ODR_10);
-//    }
-//    else {
-//        switch(target) {
-//            case 1: GPIOB->ODR |= (GPIO_ODR_4); break;
-//            case 2: GPIOB->ODR |= (GPIO_ODR_5); break;
-//            case 3: GPIOB->ODR |= (GPIO_ODR_3); break;
-//            case 4: GPIOA->ODR |= (GPIO_ODR_10); break;
-//            case 5: GPIOA->ODR |= (GPIO_ODR_2); break;
-//            case 6: GPIOA->ODR |= (GPIO_ODR_3); break;
-//            default: break;
-//        }
-//    }
-}
-
-/* Enable the output from the shift register */
-void enable_output(uint8_t tube) {
-	/* Obsolete */
-//    if(tube == 7) {
-//        GPIOB->ODR &= ~(GPIO_ODR_3 | GPIO_ODR_4 | GPIO_ODR_5);
-//        GPIOA->ODR &= ~(GPIO_ODR_2 | GPIO_ODR_3 | GPIO_ODR_10);
-//    }
-//    else {
-//        switch(tube) {
-//			case 1: GPIOB->ODR &= ~(GPIO_ODR_4); break;
-//			case 2: GPIOB->ODR &= ~(GPIO_ODR_5); break;
-//			case 3: GPIOB->ODR &= ~(GPIO_ODR_3); break;
-//			case 4: GPIOA->ODR &= ~(GPIO_ODR_10); break;
-//			case 5: GPIOA->ODR &= ~(GPIO_ODR_2); break;
-//			case 6: GPIOA->ODR &= ~(GPIO_ODR_3); break;
-//            default: break;
-//        }
-//    }
-}
-
 /* Pulse clock pin to shift a bit in the shift registers  */
 void pulse_clock() {
     srclk_high();
@@ -198,22 +167,40 @@ uint8_t dec_to_sev_seg(uint8_t value) {
 void assign_pin(uint8_t tube, uint8_t val) {
     if(val != 0) {
 		switch(tube) {
+#ifdef DEMO
 			case 1: GPIOC->ODR |= (1 << SERIAL1); break;
 			case 2: GPIOC->ODR |= (1 << SERIAL2); break;
 			case 3: GPIOB->ODR |= (1 << SERIAL3); break;
 			case 4: GPIOB->ODR |= (1 << SERIAL4); break;
 			case 5: GPIOB->ODR |= (1 << SERIAL5); break;
 			case 6: GPIOB->ODR |= (1 << SERIAL6); break;
+#else
+			case 1: GPIOB->ODR &= ~(1 << SERIAL1); break;
+			case 2: GPIOB->ODR &= ~(1 << SERIAL2); break;
+			case 3: GPIOB->ODR &= ~(1 << SERIAL3); break;
+			case 4: GPIOB->ODR &= ~(1 << SERIAL4); break;
+			case 5: GPIOC->ODR &= ~(1 << SERIAL5); break;
+			case 6: GPIOC->ODR &= ~(1 << SERIAL6); break;
+#endif
 		}
     }
     else {
 		switch(tube) {
+#ifdef	DEMO
 			case 1: GPIOC->ODR &= ~(1 << SERIAL1); break;
 			case 2: GPIOC->ODR &= ~(1 << SERIAL2); break;
 			case 3: GPIOB->ODR &= ~(1 << SERIAL3); break;
 			case 4: GPIOB->ODR &= ~(1 << SERIAL4); break;
 			case 5: GPIOB->ODR &= ~(1 << SERIAL5); break;
 			case 6: GPIOB->ODR &= ~(1 << SERIAL6); break;
+#else
+			case 1: GPIOB->ODR &= ~(1 << SERIAL1); break;
+			case 2: GPIOB->ODR &= ~(1 << SERIAL2); break;
+			case 3: GPIOB->ODR &= ~(1 << SERIAL3); break;
+			case 4: GPIOB->ODR &= ~(1 << SERIAL4); break;
+			case 5: GPIOC->ODR &= ~(1 << SERIAL5); break;
+			case 6: GPIOC->ODR &= ~(1 << SERIAL6); break;
+#endif
 		}
     }
 }
@@ -377,7 +364,7 @@ void prvUpdateTubes(void *pvParameters) {
 			update_time(1, 1, 1);
 		}
 		else if((system_state == Button_Temperature) || (system_state == BLE_Temperature)) {
-			update_temperature(30);
+			display_temperature(30);
 		}
 		else if(system_state == Switch_Config) {
 			while(system_state == Switch_Config) {

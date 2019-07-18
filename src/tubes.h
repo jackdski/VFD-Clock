@@ -26,12 +26,6 @@ void rclk_high(void);
 /* sets the RCLK (Register Clock) pin high */
 void rclk_low(void);
 
-/* 1-6 for select tubes, 7 for all */
-void disable_output(uint8_t target);
-
-/* Enable the output from the shift register */
-void enable_output(uint8_t tube);
-
 /* Pulse clock pin to shift a bit in the shift registers  */
 void pulse_clock();
 

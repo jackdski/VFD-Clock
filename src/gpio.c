@@ -12,10 +12,16 @@
 /*	F R E E R T O S   I N C L U D E S   */
 #include "FreeRTOS.h"
 #include "task.h"
+#include "timers.h"
 
 /*	A P P L I C A T I O N   I N C L U D E S   */
 #include "gpio.h"
 #include "vfd_typedefs.h"
+#include "sensor_tasks.h"
+#include "tubes.h"
+
+/*	T A S K   N O T I F I C A T I O N S   */
+extern TaskHandle_t thRTC;
 
 /*	G L O B A L   V A R I A B L E S   */
 extern System_State_E system_state;
@@ -23,10 +29,13 @@ extern System_State_E system_state;
 extern uint8_t hours;
 extern uint8_t minutes;
 extern uint8_t seconds;
-extern uint8_t temperature;
+extern int8_t temperature;	/* -128 - 127 */
+
+extern TimerHandle_t five_sec_timer;
 
 
 //#define		DEMO
+#define			NO_TSC
 
 /*	L E D   D E F I N E S   */
 #define		ERROR_LED			0	// PA0
@@ -46,6 +55,15 @@ extern uint8_t temperature;
 #define		MINUS_BUTTON_PIN	1	// PC1
 #endif
 
+#ifdef		NO_TSC
+#define		TEMPERATURE_BUTTON	3	// PB3
+#define		DATE_BUTTON			4	// PB4
+#endif
+
+/* E F U S E   D E F I N E S   */
+#define 	EFUSE_FAULT			6	// PB6 - input.
+#define		EFUSE_EN			7	// PB7 - output
+
 
 /* ERROR LED
  * RTC LED
@@ -60,15 +78,13 @@ void init_led(void) {
 	GPIOA->MODER |= 	( GPIO_MODER_MODER0_0
 						| GPIO_MODER_MODER1_0
 						| GPIO_MODER_MODER5_0
-//						| GPIO_MODER_MODER6_0
-		);
+					/*	| GPIO_MODER_MODER6_0 */ );
 
 	/* set to push-pull */
 	GPIOA->OTYPER &=   ~( GPIO_OTYPER_OT_0
 						| GPIO_OTYPER_OT_1
 						| GPIO_OTYPER_OT_5
-//						| GPIO_OTYPER_OT_6
-		);
+						/* | GPIO_OTYPER_OT_6 */ );
 }
 
 /* toggle the outputs on PA5 and PA6 */
@@ -94,15 +110,13 @@ void init_buttons(void) {
 	GPIOA->MODER &=    ~( GPIO_MODER_MODER13
 						| GPIO_MODER_MODER9
 						| GPIO_MODER_MODER7
-						| GPIO_MODER_MODER2
-		);
+						| GPIO_MODER_MODER2);
 
 	/* configure to pull-down */
 	GPIOA->PUPDR |=     ( GPIO_PUPDR_PUPDR13_1
 						| GPIO_PUPDR_PUPDR9_1
 						| GPIO_PUPDR_PUPDR7_1
-						| GPIO_PUPDR_PUPDR2_1
-		);
+						| GPIO_PUPDR_PUPDR2_1);
 
 	/* Configure PA7 ('+') button interrupt */
 	SYSCFG->EXTICR[2] = SYSCFG_EXTICR2_EXTI7_PA;	// external interrupt on PA[7]
@@ -136,15 +150,13 @@ void init_buttons(void) {
 	GPIOC->MODER &=    ~( GPIO_MODER_MODER0
 						| GPIO_MODER_MODER1
 						| GPIO_MODER_MODER2
-						| GPIO_MODER_MODER13
-		);
+						| GPIO_MODER_MODER13);
 
 	/* configure to pull-down */
 	GPIOC->PUPDR |=     ( GPIO_PUPDR_PUPDR0_1
 						| GPIO_PUPDR_PUPDR1_1
 						| GPIO_PUPDR_PUPDR2_1
-						| GPIO_PUPDR_PUPDR13_1
-		);
+						| GPIO_PUPDR_PUPDR13_1);
 
 	/* Configure PC0 ('+') button interrupt */
 	SYSCFG->EXTICR[0] |= SYSCFG_EXTICR1_EXTI0_PC;	// external interrupt on PC[0]
@@ -183,6 +195,30 @@ void init_buttons(void) {
 	/* enable interrupts on EXTI Lines 2 & 3 */
 	NVIC_EnableIRQ(EXTI2_3_IRQn);
 	NVIC_SetPriority(EXTI2_3_IRQn, 1);
+
+#ifdef NO_TSC
+	/* set to input */
+	GPIOB->MODER &= ~( GPIO_MODER_MODER3 | GPIO_MODER_MODER4);
+
+	/* configure to pull-down */
+	GPIOB->PUPDR |= ( GPIO_PUPDR_PUPDR3_1 | GPIO_PUPDR_PUPDR4_1);
+
+	/* Configure PB3 TEMPERATURE button interrupt */
+	SYSCFG->EXTICR[0] |= SYSCFG_EXTICR1_EXTI3_PB;	// external interrupt on PB[3]
+	EXTI->IMR |= EXTI_IMR_MR3; 		// select line 3 for PB3;
+	EXTI->RTSR |= EXTI_RTSR_TR3;	// enable rising trigger
+	EXTI->FTSR &= ~EXTI_FTSR_TR3; 	// disable falling trigger
+
+	/* Configure PB4 DATE button interrupt */
+	SYSCFG->EXTICR[1] |= SYSCFG_EXTICR2_EXTI4_PB;	// external interrupt on PB[4]
+	EXTI->IMR |= EXTI_IMR_MR4; 		// select line 4 for PB4;
+	EXTI->RTSR |= EXTI_RTSR_TR4;	// enable rising trigger
+	EXTI->FTSR &= ~EXTI_FTSR_TR4; 	// disable falling trigger
+
+	/* enable interrupts on EXTI Lines 2 & 3 */
+	NVIC_EnableIRQ(EXTI4_15_IRQn);
+	NVIC_SetPriority(EXTI4_15_IRQn, 1);
+#endif
 }
 
 /*   R E A D S   */
@@ -248,9 +284,20 @@ void EXTI2_3_IRQHandler(void) {
 			EXTI->FTSR &= ~EXTI_FTSR_TR2; 	// disable falling trigger
 		}
 		EXTI->PR |= EXTI_PR_PR2;
-
 	}
-	EXTI->PR |= (EXTI_PR_PR2);
+	/* Temperature button was pressed */
+	if(EXTI->PR & EXTI_PR_PR3) {
+		if(GPIOB->IDR & GPIO_IDR_2) {
+			/* create 5s time to display the temperature, suspend the RTC update display task */
+//			TimerHandle_t five_sec_timer = xTimerCreate("5s Timer", pdMS_TO_TICKS(5000), pdFALSE, 0, five_sec_timer_callback);
+			vTaskSuspend(thRTC);
+			display_temperature(temperature);
+			system_state = Button_Temperature;
+			xTimerStart(five_sec_timer, pdMS_TO_TICKS(100));
+		}
+		EXTI->PR |= EXTI_PR_PR3;
+	}
+	EXTI->PR |= (EXTI_PR_PR2 | EXTI_PR_PR3);
 }
 
 void EXTI4_15_IRQHandler(void) {
@@ -286,12 +333,32 @@ void EXTI4_15_IRQHandler(void) {
 			toggle_error_led();
 	}
 #endif
+#ifdef NO_TSC
+	/* Date button was pressed */
+	if(EXTI->PR & EXTI_PR_PR4) {
+		if(GPIOB->IDR & GPIO_IDR_4) {
+			BaseType_t xHigherPriorityTaskWoken = pdFALSE;
+			/* create 5s time to display the temperature, suspend the RTC update display task */
+			vTaskSuspend(thRTC);
+			display_date();
+			system_state = Button_Date;
+//			xTimerStart(five_sec_timer, pdMS_TO_TICKS(100));
+			if( xTimerStartFromISR( five_sec_timer, &xHigherPriorityTaskWoken ) != pdPASS )
+			    {
+			        /* The start command was not executed successfully.  Take appropriate
+			        action here. */
+			    }
+		}
+		EXTI->PR |= EXTI_PR_PR4;
+	}
+#endif
+
 	/* on/off switch */
-//	if(EXTI->PR & EXTI_PR_PR13) {
-//		EXTI->PR |= EXTI_PR_PR13;
-//		toggle_error_led();
-//		system_state = Deep_Sleep;
-//	}
+	if(EXTI->PR & EXTI_PR_PR13) {
+		EXTI->PR |= EXTI_PR_PR13;
+		toggle_error_led();
+		system_state = Deep_Sleep;
+	}
 }
 
 

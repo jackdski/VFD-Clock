@@ -14,10 +14,12 @@ typedef enum {
 	Button_Date = 1,
 	Button_Temperature = 2,
 	Switch_Config = 3,
-	BLE_Date = 4,
-	BLE_Temperature = 5,
-	BLE_Change_RTC = 6,
-	Deep_Sleep = 7
+	Switch_Sleep = 4,
+	BLE_Date = 5,
+	BLE_Temperature = 6,
+	BLE_Change_RTC = 7,
+	BLE_Sleep = 8,
+	Deep_Sleep = 9
 } System_State_E;
 
 typedef enum {

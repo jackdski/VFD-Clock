@@ -62,6 +62,8 @@ extern uint16_t display_brightness;
 static uint32_t target_brightness;
 extern uint8_t usart_msg;
 
+extern TimerHandle_t five_sec_timer;
+
 #define RTC_MAX_WAIT_TICKS		pdMS_TO_TICKS(100)
 
 
@@ -88,13 +90,14 @@ void prvTemperature_Task(void *pvParameters) {
 	static TickType_t delay_time = pdMS_TO_TICKS( 3000 ); // 3s
 	for( ;; ) {
 //		config_temperature_sensor();
-		config_temperature_sensor_mpl();
-		vTaskDelay(delay_time);		// 3s
+//		read_config_register();
 		// TODO:wake up temperature sensor();
 		// TODO: disable_shutdown_mode();
-//		read_config_register();
-//		read_config_mpl();
-		//sample_temperature();
+		config_temperature_sensor_mpl();
+		read_config_mpl();
+		temperature = read_temp_c();
+		vTaskDelay(delay_time);		// 3s
+
 	}
 }
 
@@ -192,7 +195,7 @@ void prvBLE_Receive_Task(void *pvParameters) {
 				system_state = BLE_Temperature;
 				uint8_t * msg = "TEMP:OK\0";
 				load_str_to_CircBuf(TX_Buffer, msg, 8);
-				TimerHandle_t five_sec_timer = xTimerCreate("5s Timer", pdMS_TO_TICKS(5000), pdFALSE, 0, five_sec_timer_callback);
+//				TimerHandle_t five_sec_timer = xTimerCreate("5s Timer", pdMS_TO_TICKS(5000), pdFALSE, 0, five_sec_timer_callback);
 				toggle_error_led();
 				vTaskSuspend(thRTC);
 				display_temperature(temperature);
@@ -203,7 +206,7 @@ void prvBLE_Receive_Task(void *pvParameters) {
 				system_state = BLE_Date;
 				uint8_t * msg = "DATE:OK\0";
 				load_str_to_CircBuf(TX_Buffer, msg, 8);
-				TimerHandle_t five_sec_timer = xTimerCreate("5s Timer", pdMS_TO_TICKS(5000), pdFALSE, 0, five_sec_timer_callback);
+//				TimerHandle_t five_sec_timer = xTimerCreate("5s Timer", pdMS_TO_TICKS(5000), pdFALSE, 0, five_sec_timer_callback);
 				toggle_error_led();
 				vTaskSuspend(thRTC);
 				display_date();
@@ -294,7 +297,6 @@ void prvBLE_Receive_Task(void *pvParameters) {
 					change_rtc_time(hours, minutes, seconds, temp_ampm);
 					update_time(hours, minutes, seconds);
 				}
-
 			}
 			else if(strcmp((const char *)xRXMessage, (const char *)turnoff_msg) == 0) {
 				// TODO: turn off the clock
@@ -310,9 +312,109 @@ void prvBLE_Receive_Task(void *pvParameters) {
 }
 
 
+/* call back function for the software timer created when "TEMP" or "DATE" is received
+ * 	over UART */
 void five_sec_timer_callback(TimerHandle_t xTimer) {
 	toggle_error_led();
 	system_state = Clock;
+	hours = read_rtc_hours();
+	minutes = read_rtc_minutes();
+	seconds = read_rtc_seconds();
 	update_time(hours, minutes, seconds);	/* show time on display again */
 	vTaskResume(thRTC);
 }
+
+void vApplicationSleep(TickType_t xExpectedIdleTime) {
+	uint32_t ulLowPowerTimeBeforeSleep, ulLowPowerTimeAfterSleep;
+	eSleepModeStatus eSleepStatus;
+
+	/* Read the current time from a time source that will remain operational
+	while the microcontroller is in a low power state. */
+	ulLowPowerTimeBeforeSleep = getExternalTime();
+
+	/* Stop the timer that is generating the tick interrupt. */
+	SysTick->CTRL &= ~SysTick_CTRL_ENABLE_Msk;
+
+	/* Enter a critical section that will not effect interrupts bringing the MCU
+	out of sleep mode. */
+	__disable_irq();
+
+	/* Ensure it is still ok to enter the sleep mode. */
+	eSleepStatus = eTaskConfirmSleepModeStatus();
+
+   if( eSleepStatus == eAbortSleep )
+	{
+		/* A task has been moved out of the Blocked state since this macro was
+		executed, or a context switch is being held pending.  Do not enter a
+		sleep state.  Restart the tick and exit the critical section. */
+	    SysTick_Config(60000);
+		__enable_irq();
+	}
+	else
+	{
+		if( eSleepStatus == eNoTasksWaitingTimeout )
+		{
+			__WFI();
+		}
+		else
+		{
+			/* Configure an interrupt to bring the microcontroller out of its low
+			power state at the time the kernel next needs to execute.  The
+			interrupt must be generated from a source that remains operational
+			when the microcontroller is in a low power state. */
+			vSetWakeTimeInterrupt( xExpectedIdleTime );
+
+			/* Enter the low power state. */
+			__WFI();
+
+			/* Determine how long the microcontroller was actually in a low power
+			state for, which will be less than xExpectedIdleTime if the
+			microcontroller was brought out of low power mode by an interrupt
+			other than that configured by the vSetWakeTimeInterrupt() call.
+			Note that the scheduler is suspended before
+			portSUPPRESS_TICKS_AND_SLEEP() is called, and resumed when
+			portSUPPRESS_TICKS_AND_SLEEP() returns.  Therefore no other tasks will
+			execute until this function completes. */
+			ulLowPowerTimeAfterSleep = getExternalTime();
+
+			/* Correct the kernels tick count to account for the time the
+			microcontroller spent in its low power state. */
+			vTaskStepTick( ulLowPowerTimeAfterSleep - ulLowPowerTimeBeforeSleep );
+		}
+
+		/* Exit the critical section - it might be possible to do this immediately
+		after the prvSleep() calls. */
+		__enable_irq();
+
+		/* Restart the timer that is generating the tick interrupt. */
+	    SysTick_Config(60000);
+	}
+
+}
+
+void vSetWakeTimeInterrupt(TickType_t xExpectedIdleTime) {
+	/* config TIM2 registers */
+	TIM2->PSC = 7999; 	// 8MHz / (7999+1) = 1kHz = 1ms period
+
+	if((uint16_t)xExpectedIdleTime < 6553)
+		TIM2->ARR = (uint16_t)xExpectedIdleTime * 10;	// go for this many ms, 32bit register so max 49.7 days
+	else // otherwise set to max value available
+		TIM2->ARR = 65535;
+
+	TIM2->CCR1 = (uint16_t)TIM_SR_CC1OF;	// init to 0
+	TIM2->CCER &= ~(TIM_CCER_CC1NP);	// OC1N active high
+
+	/* Enable output (MOE = 1)*/
+	TIM2->BDTR |= TIM_BDTR_MOE;
+
+	TIM2->CR1 &= ~(TIM_CR1_DIR); 		// enable upcounter and counter
+
+	TIM2->CCMR1 &= ~(TIM_CCMR1_CC1S); 	// CC1 channel configured as output
+	TIM2->EGR &= TIM_EGR_UG;		// disable update generation
+	TIM2->CR1 |= TIM_CR1_CEN;			// enable counter
+}
+
+uint32_t getExternalTime(void) {
+	return (uint32_t)((TIM2->CNT - (TIM2->CNT % 10)) * 10);
+}
+
