@@ -20,6 +20,12 @@ void uart_send_ble_message(BLE_Message_t msg);
 
 void uart_send_msgfail(void);
 
+void set_hc_10_baud_rate(uint32_t baud);
 
+void request_hc_10_baud_rate(void);
+
+void wake_up_hc_10(void);
+
+void set_sleep_mode_hc_10(void);
 
 #endif /* USART_H_ */

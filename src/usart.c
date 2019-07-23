@@ -13,8 +13,6 @@
 /*	F R E E R T O S   I N C L U D E S   */
 #include "FreeRTOS.h"
 #include "task.h"
-#include "queue.h"
-#include "message_buffer.h"
 
 /*	A P P L I C A T I O N   I N C L U D E S   */
 #include "usart.h"
@@ -24,22 +22,8 @@
 
 /*	G L O B A L   V A R I A B L E S   */
 extern uint8_t usart_msg;
-//extern QueueHandle_t BLE_TX_Queue;
-//extern QueueHandle_t BLE_RX_Queue;
-//
-//extern MessageBufferHandle_t mbBLE_RX;
-//extern MessageBufferHandle_t mbBLE_TX;
-
 extern CircBuf_t * TX_Buffer;
 extern CircBuf_t * RX_Buffer;
-
-/* L O C A L   V A R I A B L E S   */
-static const BLE_Message_t init_msg = {
-		.message_type = Initialize_Msg,
-		.data_byte_one = 0xFF,
-		.data_byte_two = 0xFF
-};
-BLE_Message_t temp_msg;
 
 #define 	USART1_TX	9	// PA9
 #define		USART1_RX	10	// PA10
@@ -67,8 +51,7 @@ void init_usart(void) {
 					| USART_CR1_RXNEIE		// enable RX interrupt
 					| USART_CR1_UESM		// enable USART in STOP mode
 					| (USART_CR1_M & 0) 	// 8-bit character length
-					| USART_CR1_PS			// odd parity
-					);
+					| USART_CR1_PS);		// odd parity
 
 	USART1->CR1 &= ~( USART_CR1_OVER8);		// oversample 16
 
@@ -80,15 +63,13 @@ void init_usart(void) {
 					| USART_CR2_ABREN		// disable auto baud rate detection
 					| USART_CR2_MSBFIRST 	// LSB first
 					| USART_CR2_LINEN		// disable LIN mode
-					| USART_CR2_CLKEN		// CK pin disabled
-		);
+					| USART_CR2_CLKEN);		// CK pin disabled
 
 
 	/* Control Register 3 */
 	USART1->CR3 |=  ( USART_CR3_WUFIE
 					| (USART_CR3_WUS & 0x3)	// Wake up from Stop mode interrupt trigger on RXNE
-					| USART_CR3_OVRDIS 		// disable Overrun detection
-		);
+					| USART_CR3_OVRDIS); 		// disable Overrun detection
 
 	USART1->CR3 &= ~( USART_CR3_CTSE	// disable CTS
 					| USART_CR3_RTSE	// disable RTS
@@ -97,8 +78,7 @@ void init_usart(void) {
 					| USART_CR3_SCEN	// disable Smartcard mode
 					| USART_CR3_HDSEL	// disable Half-Duplex selection
 					| USART_CR3_IREN	// disable IrDA
-					| USART_CR3_EIE		// disable Error interrupt
-		);
+					| USART_CR3_EIE);	// disable Error interrupt
 
 	USART1->ICR = 0x0000;			/* clear interrupt flags */
 	USART1->CR1 |=  USART_CR1_UE;	/* enable USART */
@@ -106,8 +86,6 @@ void init_usart(void) {
 	/* enable USART1 interrupts */
 	NVIC_EnableIRQ(USART1_IRQn);
 	NVIC_SetPriority(USART1_IRQn, 2);
-
-	temp_msg = init_msg;			/* */
 }
 
 void inline uart_send_byte(uint8_t byte) {
@@ -133,15 +111,10 @@ void uart_send_msgfail(void) {
 	load_str_to_CircBuf(TX_Buffer, msgfail, 11);
 }
 
-/* configures the HC-10 Bluetooth Module */
-void configure_hc_10_device(void) {
-//	set_hc_10_baud_rate(9600);	// default is 9600
-}
-
 /* configures the baud rate of the HC-10 modules.
  * default is 9600 baud
  * should receive "OK+Set:@param"
- * @param baud: 9600, 57600, 115200
+ * 	@param baud: 9600, 57600, or 115200
  */
 void set_hc_10_baud_rate(uint32_t baud) {
 	uint8_t baud_str[8] = "AT+BAUD";
@@ -175,42 +148,7 @@ void set_sleep_mode_hc_10(void) {
 void USART1_IRQHandler() {
 	/* if USART RX is not-empty, add to BLE/USART Queue */
 	if((USART1->ISR & USART_ISR_RXNE) == USART_ISR_RXNE){
-		// read data from RX register
-		/*
-//		usart_msg = (uint8_t)(USART1->RDR);
-		if(temp_msg.message_type == init_msg.message_type) {
-			temp_msg.message_type = (uint8_t)(USART1->RDR);
-		}
-		else if(temp_msg.data_byte_one == init_msg.data_byte_one) {
-			temp_msg.data_byte_one = (uint8_t)(USART1->RDR);
-		}
-		else if(temp_msg.data_byte_two == init_msg.data_byte_two) {
-			temp_msg.data_byte_two = (uint8_t)(USART1->RDR);
-			// add value of usart_msg to BLE_Queue without any blocking time
-//			xQueueSendToBackFromISR(BLE_Queue, &temp_msg, 0U);
-
-			if(temp_msg.message_type == Time_On_Clock) {
-				if(temp_msg.data_byte_one == 0xAA) {
-					if(temp_msg.data_byte_two == 0xBB) {
-						toggle_error_led();
-					}
-				}
-			}
-
-			// clear temp_msg
-			temp_msg = init_msg;
-			*/
-
-//		BaseType_t xHigherPriorityTaskWoken = pdFALSE;
-//		xMessageBufferSendFromISR(mbBLE_RX, (void *)rx_byte,
-//										1, &xHigherPriorityTaskWoken);
-//		xQueueSendFromISR(BLE_RX_Queue, &rx_byte, &xHigherPriorityTaskWoken);
-		/* clear interrupt flag */
-//		USART1->ISR |= USART_ISR_RXNE;
-//		portYIELD_FROM_ISR(xHigherPriorityTaskWoken);
-
-		uint8_t rx_byte = (uint8_t)(USART1->RDR);
-		add_item_CircBuf(RX_Buffer, rx_byte);
+		add_item_CircBuf(RX_Buffer, (uint8_t)(USART1->RDR));
 	}
 }
 

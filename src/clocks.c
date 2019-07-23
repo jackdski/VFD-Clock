@@ -14,8 +14,7 @@
 void init_sysclock(void) {
 	/* Enable HSI48 and HSI14 */
 	RCC->CR2 = 	( RCC_CR2_HSI48ON
-				| RCC_CR2_HSI14ON
-		);
+				| RCC_CR2_HSI14ON);
 
 	while(!(RCC->CR & RCC_CR_HSIRDY));
 
@@ -29,8 +28,7 @@ void init_sysclock(void) {
 				| RCC_CFGR_PLLMUL2 			// Mult. PPL input clock by 2 (is now 8MHz?)
 				| RCC_CFGR_MCO_SYSCLK   	// output SYSCLK to MCO pin
 				| RCC_CFGR_MCOPRE_DIV32		// MCO pin is divided by 32, output should be 1.5MHz
-				| RCC_CFGR_PLLNODIV 		// PPL is not divded by 2 for MCO
-			);
+				| RCC_CFGR_PLLNODIV); 		// PPL is not divded by 2 for MCO
 
 	/* APB Peripherals Reset */
 //	RCC->APB1RSTR = 0x00000000;	 // p117 in Ref. Manual

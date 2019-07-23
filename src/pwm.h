@@ -17,6 +17,12 @@
 
 void init_pwm(void);
 
+void enable_brightness_timer(void);
+
+void disable_brightness_timer(void);
+
+void toggle_display_output(void);
+
 /* @param uint16_t duty_cycle: 0%-100% */
 void change_pwm_duty_cycle(uint16_t duty_cycle);
 

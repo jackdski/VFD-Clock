@@ -12,6 +12,7 @@
 
 /*	A P P L I C A T I O N   I N C L U D E S   */
 #include "vfd_typedefs.h"
+#include "sensor_tasks.h"
 #include "circular_buffer.h"
 #include "gpio.h"
 #include "clocks.h"
@@ -22,9 +23,9 @@
 #include "adc.h"
 #include "rtc.h"
 #include "tsc.h"
+#include "callbacks.h"
 
 /*	T A S K S   */
-#include "sensor_tasks.h"
 
 /*	F R E E R T O S   H O O K S   */
 void vApplicationMallocFailedHook( void );
@@ -40,11 +41,16 @@ CircBuf_t * RX_Buffer;
 
 /*	T A S K   N O T I F I C A T I O N S   */
 TaskHandle_t thRTC = NULL;
+TaskHandle_t thOff = NULL;
+TaskHandle_t thConfig = NULL;
 TaskHandle_t thBrightness_Adj = NULL;
 TaskHandle_t thAutoBrightAdj = NULL;
 
 /* S O F T W A R E   T I M E R S   */
+TimerHandle_t three_sec_timer = NULL;
 TimerHandle_t five_sec_timer = NULL;
+TimerHandle_t ten_sec_timer = NULL;
+TimerHandle_t button_timer = NULL;
 
 /*	G L O B A L   V A R I A B L E S   */
 volatile System_State_E system_state = Clock;
@@ -53,24 +59,37 @@ volatile System_State_E system_state = Clock;
 volatile uint8_t hours = 12;		/* 1-12*/
 volatile uint8_t minutes = 0;		/* 0-59 */
 volatile uint8_t seconds = 0;		/* 0-59 */
+volatile uint8_t ampm = PM;
 
 volatile int8_t temperature = 1;	/* -128 - 127 */
 
 volatile uint32_t light_value = 200;
 volatile uint16_t display_brightness = 50;
 volatile uint8_t usart_msg = 0;
+volatile uint8_t config_timer_callback_count = 0;
+
+Button_Status_E plus_button_status = Open;
+Button_Status_E minus_button_status = Open;
+Light_Flash_E indication_light_status = Off;
+volatile uint8_t holds = 0;
+Time_Change_Speed_E change_speed = Slow;
 
 /*	M A I N   */
 int main(void) {
-	/* create circular buffers for BLE mesages */
+	/* create circular buffers for BLE messages */
 	TX_Buffer = create_CircBuf(50);
 	RX_Buffer = create_CircBuf(50);
+
+    /* check on/off switch position before initializing and starting scheduler */
+    if(read_power_switch() == 1) {
+    	system_state = Deep_Sleep;
+    	while(system_state == Deep_Sleep);
+    	// TODO: put into low-power mode
+    }
 
 	/* initialize peripherals */
 	init_sysclock();
 	init_rtc();
-	change_rtc_time(hours, minutes, seconds, 1);	// init to 12:00:00pm
-	change_rtc_date(7, 27);		// init to 7/27
 	init_led();
 	init_buttons();
 	init_i2c();
@@ -78,12 +97,13 @@ int main(void) {
 	configure_shift_pins();
 	init_pwm();
 	init_adc();
-	init_tsc();
 
     /* Priority 5 Tasks */
 	BaseType_t rtcReturned = xTaskCreate(prvRTC_Task, "RTC", configMINIMAL_STACK_SIZE, NULL, 5, &thRTC);
+	BaseType_t sleepReturned = xTaskCreate(prvTurnOffTask, "Turn Off", configMINIMAL_STACK_SIZE, NULL, 5, &thOff);
+    BaseType_t configReturned = xTaskCreate(prvConfig_Task, "Config", configMINIMAL_STACK_SIZE, NULL, 5, &thConfig);
 
-	/* Priority 4 Tasks */
+    /* Priority 4 Tasks */
 
 	/* Priority 3 Tasks */
 //	BaseType_t tempReturned = xTaskCreate( prvTemperature_Task, "TempSensor", configMINIMAL_STACK_SIZE, NULL, 3, NULL);
@@ -136,15 +156,19 @@ int main(void) {
     	while(1);
     }
 
-    /* initialize software timer */
+    /* initialize software timers */
+    three_sec_timer = xTimerCreate("3s Timer", pdMS_TO_TICKS(100), pdTRUE, 0, three_sec_timer_callback);
 	five_sec_timer = xTimerCreate("5s Timer", pdMS_TO_TICKS(5000), pdFALSE, 0, five_sec_timer_callback);
+    ten_sec_timer = xTimerCreate("10s Timer", pdMS_TO_TICKS(10000), pdFALSE, 0, ten_sec_timer_callback);
+    button_timer = xTimerCreate("Button Timer", pdMS_TO_TICKS(50), pdTRUE, 0, button_timer_callback);
 
     /* initialize SysTick timer to 10ms ticks */
     SysTick_Config(60000);
 
-    /* TODO: check on/off switch position before starting scheduler */
+    // size_t free_heap_size = xPortGetFreeHeapSize();		// used to debugging how big the heap needs to be
 
-    size_t free_heap_size = xPortGetFreeHeapSize();		// used to debugging how big the heap needs to be
+    change_rtc_time(hours, minutes, seconds, PM);	// init to 12:00:00pm
+    change_rtc_date(7, 27);							// init to 7/27
 
     /* start scheduler */
     vTaskStartScheduler();
@@ -161,10 +185,7 @@ void vApplicationMallocFailedHook( void )
 void vApplicationIdleHook( void )
 {
     for( ;; ) {
-    	// TODO: check that everything is in order, then put into low-power mode
-    	if(system_state == Switch_Sleep || system_state == BLE_Sleep) {
-    		//    	__WFI();
-    	}
+    	__WFI();		// sleep when the opportunity is given
     }
 }
 /*-----------------------------------------------------------*/
@@ -185,7 +206,6 @@ void vApplicationTickHook( void) {
 //    for( ;; );
 }
 
-void *malloc( size_t xSize )
-{
+void *malloc( size_t xSize ) {
     for( ;; );
 }

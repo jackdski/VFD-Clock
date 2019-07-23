@@ -8,6 +8,9 @@
 #ifndef RTC_H_
 #define RTC_H_
 
+#define PM	1
+#define AM	0
+
 void init_rtc(void);
 
 /* Hours, minutes, and seconds read/write */

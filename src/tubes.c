@@ -251,10 +251,6 @@ void shift_out(uint8_t tubeNumber, uint8_t val) {
 
 /* updates hours, minutes, and seconds */
 void update_time(uint8_t decHrs, uint8_t decMins, uint8_t decSecs) {
-//	disable_output(ALL_TUBES);
-//	srclr_latch_low();	// latch (!SRCLR) low
-
-	/* comment to use user-defined values */
 #ifdef TUBE_TESTING
     uint8_t segHrsOne = 0xAA;
     uint8_t segHrsTwo = 0xAA;
@@ -298,7 +294,6 @@ void update_time(uint8_t decHrs, uint8_t decMins, uint8_t decSecs) {
     rclk_low();
 
     srclr_latch_low();	// set latch (!SRCLR0) low again
-//	enable_output(ALL_TUBES);
 }
 
 /* updates the temperature to display '  ##oF  ' */
@@ -354,27 +349,6 @@ void display_date(void) {
     rclk_low();
 
     srclr_latch_low();	// set latch (!SRCLR0) low again
-}
-void prvUpdateTubes(void *pvParameters) {
-	static TickType_t delay_time = pdMS_TO_TICKS( 1000 ); // 1s
-	for( ;; ) {
-		// TODO: take semaphore
-
-		if(system_state == Clock) {
-			update_time(1, 1, 1);
-		}
-		else if((system_state == Button_Temperature) || (system_state == BLE_Temperature)) {
-			display_temperature(30);
-		}
-		else if(system_state == Switch_Config) {
-			while(system_state == Switch_Config) {
-				toggle_rtc_led();
-			}
-		}
-
-		vTaskDelay(delay_time);
-
-	}
 }
 
 

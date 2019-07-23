@@ -16,6 +16,4 @@ void init_timing_stats_timer(void);
 
 void StartHSE(void);
 
-
-
 #endif /* CLOCKS_H_ */

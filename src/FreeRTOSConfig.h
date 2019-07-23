@@ -42,7 +42,7 @@
 #define configUSE_APPLICATION_TASK_TAG	0
 #define configUSE_COUNTING_SEMAPHORES	1
 #define configUSE_TASK_NOTIFICATIONS	1
-#define configUSE_TICKLESS_IDLE			1
+#define configUSE_TICKLESS_IDLE			0
 #define configMESSAGE_BUFFER_LENGTH_TYPE			size_t//uint8_t
 
 /* run time stats */

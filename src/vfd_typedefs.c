@@ -9,8 +9,6 @@
 #include <stdint.h>
 #include "vfd_typedefs.h"
 
-
-//typedef BLE_Message BLE_Message_t;
-//typedef ClockTime ClockTime_t;
-
-
+/*	D E V I C E   I N C L U D E S   */
+#include "stm32f091xc.h"
+#include <stdint.h>

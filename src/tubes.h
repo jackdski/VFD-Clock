@@ -64,6 +64,4 @@ void display_temperature(uint8_t temperature);
 /* displays the date 'MM  DD' */
 void display_date(void);
 
-void prvUpdateTubes(void *pvParameters);
-
 #endif /* TUBES_H_ */

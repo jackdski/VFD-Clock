@@ -27,6 +27,11 @@ void init_pwm(void) {
 	 * 	period = 25% - 100%
 	 */
 
+	/* PA4 */
+	GPIOA->MODER |=     (GPIO_MODER_MODER4);	// PA4 to output
+	GPIOA->ODR &= ~(GPIO_ODR_4);				// set output to low
+	GPIOA->OTYPER &=   ~(GPIO_OTYPER_OT_7);		// set to push-pull
+
 	/* config GPIO - PA4 to AF4 */
 	GPIOA->MODER = (GPIOA->MODER & ~(GPIO_MODER_MODER4)) | GPIO_MODER_MODER4_1;
 	GPIOA->AFR[0] |=  (0x04 << GPIO_AFRL_AFRL4_Pos); // select AF4 on PA4
@@ -60,10 +65,34 @@ void init_pwm(void) {
 	TIM14->EGR |= TIM_EGR_UG;
 }
 
+void enable_brightness_timer(void) {
+	TIM14->BDTR |= TIM_BDTR_MOE;		// Enable output (MOE = 1)*/
+
+	/* config GPIO - PA4 to AF4 */
+	GPIOA->MODER = (GPIOA->MODER & ~(GPIO_MODER_MODER4)) | GPIO_MODER_MODER4_1;
+	GPIOA->AFR[0] |=  (0x04 << GPIO_AFRL_AFRL4_Pos); // select AF4 on PA4
+}
+
+void disable_brightness_timer(void) {
+	TIM14->BDTR &= ~(TIM_BDTR_MOE);		// disable timer output
+
+	/* config GPIO - PA4 to AF0 */
+	GPIOA->MODER = (GPIOA->MODER & ~(GPIO_MODER_MODER4));
+	GPIOA->AFR[0] &=  ~(0x04 << GPIO_AFRL_AFRL4_Pos); // select AF0 on PA4
+}
+
+void inline toggle_display_output(void) {
+	GPIOA->ODR ^= GPIO_ODR_4;
+}
+
 /* @param uint16_t duty_cycle: 0%-100% */
 void change_pwm_duty_cycle(uint16_t duty_cycle) {
-	uint16_t duty = ((uint16_t)PWM_FREQUENCY * duty_cycle) / 100;
-	TIM14->CCR1 = duty;
+	if(duty_cycle > 100)
+		TIM14->CCR1 = ((uint16_t)PWM_FREQUENCY * 100) / 100;
+	else {
+		uint16_t duty = ((uint16_t)PWM_FREQUENCY * duty_cycle) / 100;
+		TIM14->CCR1 = duty;
+	}
 }
 
 uint16_t inline get_pwm_duty_cycle(void) {

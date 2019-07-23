@@ -16,19 +16,6 @@
 /*	A P P L I C A T I O N   I N C L U D E S   */
 #include "adc.h"
 
-
-//#ifdef	DEMO
-//#define	PHOTORESISTOR_LEFT		13	// PC3 - AF0, CH13
-//#else
-//		PHOTORESISTOR_LEFT		6	// PA6 - AF0, CH6
-//#endif
-//#define PHOTORESISTOR_RIGHT		7	// PA7 - AF0, CH7
-
-//#define RANGE_THRESHOLD_1	3
-//#define RANGE_THRESHOLD_2	20
-//#define RANGE_THRESHOLD_3	40
-//#define RANGE_THRESHOLD_4	70
-
 /*	G L O B A L   V A R I A B L E S   */
 extern uint32_t light_value;
 
@@ -50,11 +37,8 @@ void init_adc(void) {
 #endif
 
 	/* configure for Photoresistor Right - PA7 AF0*/
-
-	/* select alternate function mode */
-	GPIOA->MODER = (GPIOA->MODER & ~(GPIO_MODER_MODER7)) | GPIO_MODER_MODER7_1;
-	// select AF0 on PA7
-	GPIOA->AFR[0] &=  ~(GPIO_AFRL_AFRL7); // AFRL (Ports 0-7)
+	GPIOA->MODER = (GPIOA->MODER & ~(GPIO_MODER_MODER7)) | GPIO_MODER_MODER7_1;  /* select alternate function mode */
+	GPIOA->AFR[0] &=  ~(GPIO_AFRL_AFRL7); // select AF0 on PA7, AFRL (Ports 0-7)
 
 	calibrate_adc();
 
@@ -67,16 +51,10 @@ void init_adc(void) {
 
 	/* enable interrupts */
 	ADC1->IER |=	( ADC_IER_AWD1IE		// analog watchdog
-					| ADC_IER_EOCIE			// end of conversion
-			);
+					| ADC_IER_EOCIE);		// end of conversion
 
 	enable_adc();
 
-//	select_adc_channel(PHOTORESISTOR_LEFT);
-//	light_value = sample_adc();
-//	select_adc_channel(PHOTORESISTOR_RIGHT);
-//	light_value = (light_value + sample_adc()) / 2;		// use average value
-//
 //	/* set ADC watchdog thresholds */
 //	set_adc_watchdog_thresholds(light_value);
 //
@@ -91,17 +69,13 @@ void calibrate_adc(void) {
 	/* (3) Clear DMAEN */
 	/* (4) Launch the calibration by setting ADCAL */
 	/* (5) Wait until ADCAL=0 */
-	if ((ADC1->CR & ADC_CR_ADEN) != 0) { /* (1) */
-		ADC1->CR |= ADC_CR_ADDIS; /* (2) */
+	if ((ADC1->CR & ADC_CR_ADEN) != 0) {
+		ADC1->CR |= ADC_CR_ADDIS;
 	}
-	while ((ADC1->CR & ADC_CR_ADEN) != 0) {
-	/* For robust implementation, add here time-out management */
-	}
-		ADC1->CFGR1 &= ~ADC_CFGR1_DMAEN; /* (3) */
-		ADC1->CR |= ADC_CR_ADCAL; /* (4) */
-		while ((ADC1->CR & ADC_CR_ADCAL) != 0) { /* (5) */
-		/* For robust implementation, add here time-out management */
-		}
+	while ((ADC1->CR & ADC_CR_ADEN) != 0);
+		ADC1->CFGR1 &= ~ADC_CFGR1_DMAEN;
+		ADC1->CR |= ADC_CR_ADCAL;
+		while ((ADC1->CR & ADC_CR_ADCAL) != 0);
 }
 
 void enable_adc(void) {
@@ -110,13 +84,11 @@ void enable_adc(void) {
 	/* (2) Clear ADRDY */
 	/* (3) Enable the ADC */
 	/* (4) Wait until ADC ready */
-	if ((ADC1->ISR & ADC_ISR_ADRDY) != 0) { /* (1) */
-		ADC1->ISR |= ADC_ISR_ADRDY; /* (2) */
+	if ((ADC1->ISR & ADC_ISR_ADRDY) != 0) {
+		ADC1->ISR |= ADC_ISR_ADRDY;
 	}
-	ADC1->CR |= ADC_CR_ADEN; /* (3) */
-	while ((ADC1->ISR & ADC_ISR_ADRDY) == 0) { /* (4) */
-	/* For robust implementation, add here time-out management */
-	}
+	ADC1->CR |= ADC_CR_ADEN;
+	while ((ADC1->ISR & ADC_ISR_ADRDY) == 0);
 }
 
 void disable_adc(void) {
@@ -125,27 +97,22 @@ void disable_adc(void) {
 	/* (2) Wait until ADSTP is reset by hardware i.e. conversion is stopped */
 	/* (3) Disable the ADC */
 	/* (4) Wait until the ADC is fully disabled */
-	ADC1->CR |= ADC_CR_ADSTP; /* (1) */
-	while ((ADC1->CR & ADC_CR_ADSTP) != 0) { /* (2) */
-		/* For robust implementation, add here time-out management */
-	}
-	ADC1->CR |= ADC_CR_ADDIS; /* (3) */
-	while ((ADC1->CR & ADC_CR_ADEN) != 0) { /* (4) */
-		/* For robust implementation, add here time-out management */
-	}
+	ADC1->CR |= ADC_CR_ADSTP;
+	while ((ADC1->CR & ADC_CR_ADSTP) != 0);
+	ADC1->CR |= ADC_CR_ADDIS;
+	while ((ADC1->CR & ADC_CR_ADEN) != 0);
 }
 
 uint32_t sample_adc(void) {
 	ADC1->CFGR1 &= ~(ADC_CFGR1_CONT);			// set to single conversion mode
 	while(!(ADC1->ISR & ADC_ISR_ADRDY));		// wait for ADC ready flag
 	ADC1->CR |= ADC_CR_ADSTART;					// start conversion
-	while((ADC1->ISR & ADC_ISR_EOC) == 0);			// wait for EOC (End of Conversion) flag
+	while((ADC1->ISR & ADC_ISR_EOC) == 0);		// wait for EOC (End of Conversion) flag
 	return read_adc();
 }
 
 /* enables the VBAT channel
- * 	VBAT = 2 * conversion_value
- */
+ * 	VBAT = 2 * conversion_value */
 void enable_vbat_adc(void) {
 	while(ADC1->CR & ADC_CR_ADSTART);		// cannot write while ADSTART = 1 (conversion ongoing)
 	ADC1_COMMON->CCR |= ADC_CCR_VBATEN;		// enable VBAT channel
@@ -193,8 +160,7 @@ void set_analog_watchdog_adc(uint8_t channel) {
 		ADC1->CFGR1 |= 	( ADC_CFGR1_CONT | (channel << 26) | ADC_CFGR1_AWDEN | ADC_CFGR1_AWDSGL);
 	}
 
-	/* (2) Define analog watchdog range : 16b-MSW is the high limit
-	and 16b-LSW is the low limit */
+	/* (2) Define analog watchdog range : 16b-MSW is the high limit and 16b-LSW is the low limit */
 	// TODO: work on finding the average untouched values
 	ADC1->TR = (0xFF00 << 16) + 0x00FF; /* (2)*/
 
@@ -211,9 +177,7 @@ void select_adc_channel(uint8_t channel) {
 	ADC1->CHSELR = (0x1U << channel);	// select new input channel for conversion
 }
 
-/*
- * inline function that returns the 16 bit value currently in the ADC Data Register (ADC_DR)
- */
+/* inline function that returns the 16 bit value currently in the ADC Data Register (ADC_DR) */
 uint32_t inline read_adc(void) {
 	return (ADC1->DR & ADC_DR_DATA);
 }

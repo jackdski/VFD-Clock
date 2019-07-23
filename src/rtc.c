@@ -8,15 +8,12 @@
 /*	D E V I C E   I N C L U D E S   */
 #include "stm32f091xc.h"
 #include <stdint.h>
-
-/*	F R E E R T O S   I N C L U D E S   */
 #include "FreeRTOS.h"
 #include "task.h"
 #include "queue.h"
 #include "semphr.h"
 
 /*	A P P L I C A T I O N   I N C L U D E S   */
-#include "sensor_tasks.h"
 #include "rtc.h"
 #include "gpio.h"
 
@@ -33,8 +30,7 @@ void init_rtc(void) {
 	RCC->BDCR =		( RCC_BDCR_LSEON		// LSE oscillator enable
 					| RCC_BDCR_LSEDRV_0		// not-bypass mode medium-high drive LSE
 					| RCC_BDCR_RTCSEL_0 	// LSE used for prototyping, use LSE otherwise
-					| RCC_BDCR_RTCEN		// enable RTC
-		);
+					| RCC_BDCR_RTCEN);		// enable RTC
 
 	/* unlock RTC registers */
 	RTC->WPR = 0xCA;
@@ -102,7 +98,7 @@ uint32_t read_rtc_time(void) {
 	if((RTC->ISR & RTC_ISR_RSF) == RTC_ISR_RSF) {
 		return RTC->TR; /* get time */
 	}
-	return RTC->TR; /* get time */ // TODO: necessary?
+	return RTC->TR; /* get time */
 }
 
 uint8_t inline read_rtc_ampm(void) {
@@ -124,7 +120,7 @@ uint8_t inline read_rtc_seconds(void) {
 void inline change_rtc_hours(uint8_t new_hours) {
 	RTC->TR &= ~(RTC_TR_HT | RTC_TR_HU);
 	RTC->TR |= ((new_hours / 10) << RTC_TR_HT_Pos);
-	RTC->TR |= ((new_hours % 10) << RTC_TR_HU_Pos);
+	RTC->TR |= ((new_hours % 10) << RTC_TR_HU_Pos); // ((new_hours % 10) << RTC_TR_HU_Pos);
 }
 
 void inline change_rtc_minutes(uint8_t new_minutes) {
