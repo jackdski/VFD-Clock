@@ -30,6 +30,7 @@
 #include "mcp9808.h"
 #include "MPL3115A2.h"
 #include "callbacks.h"
+#include "low_power.h"
 
 #define PC3_ADC_CHANNEL		13	// pin PC3 is channel 13
 
@@ -333,8 +334,10 @@ void prvBLE_Receive_Task(void *pvParameters) {
 					update_time(hours, minutes, seconds);
 				}
 			}
+			//  "TURNOFF"
 			else if(strcmp((const char *)xRXMessage, (const char *)turnoff_msg) == 0) {
-				// TODO: turn off the clock
+				uint8_t * msg = "Remote Turn Off not available\0";
+				load_str_to_CircBuf(TX_Buffer, msg, 30);
 			}
 			else {
 				// send "MSGFAIL" back since an incorrect message was received
@@ -347,28 +350,24 @@ void prvBLE_Receive_Task(void *pvParameters) {
 }
 
 void prvTurnOffTask(void *pvParameters) {
+	/* this task will effectively reset the device when it is turned back on
+	 * 	therefore, it should not be necessary to stop the scheduler, but rather
+	 * 	prepare the hardware for the DeepSleep/Standby mode. This mode "stops all
+	 * 	the clocks in the core supply domain and disables the PLL and the HSI, HSI48,
+	 * 	HSI14 and HSE oscillators" and "SRAM and register contents are lost except for
+	 * 	 registers in the RTC domain and Standby circuitry".
+	 *  */
 	static uint32_t thread_notification;
-
 	for( ;; ) {
 		thread_notification = ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
 		if(thread_notification != 0) {
-			indication_light_status = Flashing;
-			set_sleep_mode_hc_10(); 	// put HC-10 in sleep mode
-			// TODO: disable I2C, UART, ADC, timers, PWM(?)
-			// TODO: switch to 8MHz clock
+			GPIOA->ODR |= GPIO_ODR_5;
+			configure_for_deepsleep();
+			GPIOA->ODR &= ~GPIO_ODR_5;
+
+			// enter DeepSleep/Standby Mode
+			__WFI();
 		}
 	}
 }
 
-void prvTurnOnTask(void *pvParameters) {
-	static uint32_t thread_notification;
-
-	for( ;; ) {
-		thread_notification = ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
-		if(thread_notification != 0) {
-			wake_up_hc_10(); // wake up HC-10
-			// TODO: enable I2C, UART, ADC, timers, PWM(?)
-			// TODO: switch to 48MHz clock
-		}
-	}
-}

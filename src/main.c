@@ -24,6 +24,7 @@
 #include "rtc.h"
 #include "tsc.h"
 #include "callbacks.h"
+#include "low_power.h"
 
 /*	T A S K S   */
 
@@ -80,11 +81,23 @@ int main(void) {
 	TX_Buffer = create_CircBuf(50);
 	RX_Buffer = create_CircBuf(50);
 
-    /* check on/off switch position before initializing and starting scheduler */
-    if(read_power_switch() == 1) {
-    	system_state = Deep_Sleep;
-    	while(system_state == Deep_Sleep);
-    	// TODO: put into low-power mode
+    /* check on/off switch position before initializing and starting scheduler,
+     * should only happen the first time the device is powered up */
+    if(read_power_switch() == 0) {
+		GPIOA->ODR |= GPIO_ODR_5;
+		configure_for_deepsleep();
+		GPIOA->ODR &= ~GPIO_ODR_5;
+		__WFI();  // enter DeepSleep/Standby Mode
+    }
+
+    /* for now, check if device was set to Standby mode prior to running this code again */
+    if((PWR->CSR & PWR_CSR_SBF) == 1) {
+		GPIOA->ODR |= GPIO_ODR_5;
+		uint32_t i;
+		while(1) {
+			for(i=0; i < 100000; i++);
+			GPIOA->ODR ^= GPIO_ODR_5;
+		}
     }
 
 	/* initialize peripherals */
@@ -97,6 +110,7 @@ int main(void) {
 	configure_shift_pins();
 	init_pwm();
 	init_adc();
+	wake_up_hc_10();
 
     /* Priority 5 Tasks */
 	BaseType_t rtcReturned = xTaskCreate(prvRTC_Task, "RTC", configMINIMAL_STACK_SIZE, NULL, 5, &thRTC);
@@ -185,7 +199,7 @@ void vApplicationMallocFailedHook( void )
 void vApplicationIdleHook( void )
 {
     for( ;; ) {
-    	__WFI();		// sleep when the opportunity is given
+    	__WFI();	// sleep (stop the CPU clock) when the opportunity is given
     }
 }
 /*-----------------------------------------------------------*/

@@ -48,7 +48,7 @@ void init_rtc(void) {
 	RTC->CR &= ~(RTC_CR_OSEL); 	// output disabled
 	RTC->CR |= (RTC_CR_BYPSHAD | RTC_CR_ALRAIE);
 
-	/* initialize time to 12:00:00 */
+	/* initialize time to 12:00:00 pm */
 	RTC->TR |= RTC_TR_PM;  // set to PM
 	RTC->TR = (1 & RTC_TR_HT) | (2 & RTC_TR_HU);
 
@@ -78,6 +78,25 @@ void init_rtc(void) {
 	/* enable RTC interrupts */
 	NVIC_EnableIRQ(RTC_IRQn);
 	NVIC_SetPriority(RTC_IRQn, 0);
+}
+
+void rtc_disable_alarm(void) {
+	/* unlock RTC registers */
+	RTC->WPR = 0xCA;
+	RTC->WPR = 0x53;
+
+	RTC->ISR |= RTC_ISR_INIT;
+	while (!(RTC->ISR & RTC_ISR_INITF));
+	/* disable RTC interrupts */
+	NVIC_DisableIRQ(RTC_IRQn);
+
+	RTC->CR &= ~RTC_CR_ALRAE;	// disable alarm
+
+	RTC->ISR &= ~RTC_ISR_INIT;	// clear init bit
+
+	/* lock RTC registers */
+	RTC->WPR = 0xFE;
+	RTC->WPR = 0x64;
 }
 
 /* handles interrupts from RTC's Alarm A and

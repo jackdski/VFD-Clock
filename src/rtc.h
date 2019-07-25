@@ -13,6 +13,8 @@
 
 void init_rtc(void);
 
+void rtc_disable_alarm(void);
+
 /* Hours, minutes, and seconds read/write */
 uint32_t read_rtc_time(void);
 

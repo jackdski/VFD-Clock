@@ -38,16 +38,14 @@ void init_sysclock(void) {
 	RCC->AHBENR =	( RCC_AHBENR_GPIOAEN
 					| RCC_AHBENR_GPIOBEN
 					| RCC_AHBENR_GPIOCEN
-					| RCC_AHBENR_GPIODEN
-					| RCC_AHBENR_GPIOEEN
 					| RCC_AHBENR_GPIOFEN
-					| RCC_AHBENR_TSCEN
+//					| RCC_AHBENR_TSCEN
 					| RCC_AHBENR_TSEN);
 
 	RCC->APB1ENR =  ( RCC_APB1ENR_TIM2EN
 					| RCC_APB1ENR_TIM14EN
-					| RCC_APB1ENR_USART2EN
-					| RCC_APB1ENR_USART3EN
+//					| RCC_APB1ENR_USART2EN
+//					| RCC_APB1ENR_USART3EN
 					| RCC_APB1ENR_I2C1EN
 					| RCC_APB1ENR_I2C2EN
 					| RCC_APB1ENR_PWREN);
@@ -55,8 +53,8 @@ void init_sysclock(void) {
 	RCC->APB2ENR =  ( RCC_APB2ENR_ADCEN
 					| RCC_APB2ENR_TIM1EN
 					| RCC_APB2ENR_USART1EN
-					| RCC_APB2ENR_TIM15EN
-					| RCC_APB2ENR_TIM16EN
+//					| RCC_APB2ENR_TIM15EN
+//					| RCC_APB2ENR_TIM16EN
 					| RCC_APB2ENR_SYSCFGEN);
 
 //	/* Real-Time Clock */
@@ -71,9 +69,9 @@ void init_sysclock(void) {
 
 	/* Select clocks sources for peripherals */
 	RCC->CFGR3 = 	( RCC_CFGR3_USART1SW_HSI	// 8MHz
-					| RCC_CFGR3_I2C1SW_HSI		// 8MHz
-					| RCC_CFGR3_USART2SW_HSI	// 8MHz
-					| RCC_CFGR3_USART3SW_HSI);	// 8MHz
+					| RCC_CFGR3_I2C1SW_HSI);	// 8MHz
+//					| RCC_CFGR3_USART2SW_HSI	// 8MHz
+//					| RCC_CFGR3_USART3SW_HSI);	// 8MHz
 
 	RCC->CIR = 0;  // clear Clock Interrupt Register
 
@@ -93,4 +91,5 @@ void init_timing_stats_timer(void) {
 
 	TIM3->CR1 |= TIM_CR1_DIR | TIM_CR1_CEN;	// enable downcounter and counter
 }
+
 

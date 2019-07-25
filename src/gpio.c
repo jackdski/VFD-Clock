@@ -44,18 +44,17 @@ extern Time_Change_Speed_E change_speed;
 
 extern uint8_t holds;
 
-//#define		DEMO
 #define		NO_TSC
 //#define		EFUSE_CURRENT_SENSE
 
 /*	L E D   D E F I N E S   */
 #define		ERROR_LED			0	// PA0
 #define		RTC_LED				1	// PA1
-#define		HEARTBEAT_LED		5	// PA5
+#define		INDICATOR_LED		5	// PA5
 //#define		LED_GEN_PURP		6	// PA6
 
 /*	B U T T O N  &  S W I T C H E S   D E F I N E S   */
- #define		ON_OFF_SWITCH		13	// PC13
+ #define		ON_OFF_SWITCH		13	// PC13 - WKUP2
 //#define		CONFIG_SWITCH		2	// PC2
 
 #ifdef		DEMO
@@ -80,7 +79,7 @@ extern uint8_t holds;
 
 /* ERROR LED
  * RTC LED
- * Heartbeat LED
+ * Indicator LED
  * General Purpose LED
  */
 void init_led(void) {
@@ -102,42 +101,6 @@ void init_led(void) {
 
 /* configures buttons */
 void init_buttons(void) {
-#ifdef DEMO
-	/* make sure GPIOA is enabled */
-	RCC->AHBENR |= RCC_AHBENR_GPIOAEN;		// make sure GPIOA is enabled
-
-	/* set to input */
-	GPIOA->MODER &=    ~( GPIO_MODER_MODER13
-						| GPIO_MODER_MODER9
-						| GPIO_MODER_MODER7
-						| GPIO_MODER_MODER2);
-
-	/* configure to pull-down */
-	GPIOA->PUPDR |=     ( GPIO_PUPDR_PUPDR13_1
-						| GPIO_PUPDR_PUPDR9_1
-						| GPIO_PUPDR_PUPDR7_1
-						| GPIO_PUPDR_PUPDR2_1);
-
-	/* Configure PA7 ('+') button interrupt */
-	SYSCFG->EXTICR[2] = SYSCFG_EXTICR2_EXTI7_PA;	// external interrupt on PA[7]
-	EXTI->IMR |= EXTI_IMR_MR7; 		// select line 7 for PA7;
-	EXTI->RTSR |= EXTI_RTSR_TR7;	// enable rising trigger
-	EXTI->FTSR &= EXTI_FTSR_TR7; 	// disable falling trigger
-
-	// clear pending interrupt flag
-	EXTI->PR &= ~(EXTI_PR_PR7);
-
-	/* Configure PA9 ('-') button interrupt */
-	SYSCFG->EXTICR[3] = SYSCFG_EXTICR3_EXTI9_PA;	// external interrupt on PA[7]
-	EXTI->IMR |= EXTI_IMR_MR9; 		// select line 7 for PA9;
-	EXTI->RTSR |= EXTI_RTSR_TR9;	// enable rising trigger
-	EXTI->FTSR &= EXTI_FTSR_TR9; 	// disable falling trigger
-
-	/* enable interrupts on EXTI Lines 4-15*/
-	NVIC_EnableIRQ(EXTI4_15_IRQn);
-	NVIC_SetPriority(EXTI4_15_IRQn, 1);
-
-#else
 //  PLUS_BUTTON_PIN		0	// PC0
 //	MINUS_BUTTON_PIN	1	// PC1
 //	CONFIG_SWITCH		2	// PC2
@@ -178,7 +141,6 @@ void init_buttons(void) {
 	/* enable interrupts on EXTI Lines 0 & 1 */
 	NVIC_EnableIRQ(EXTI0_1_IRQn);
 	NVIC_SetPriority(EXTI0_1_IRQn, 1);
-#endif
 
 	/* Configure PC2 (Configure) switch interrupt */
 	SYSCFG->EXTICR[0] |= SYSCFG_EXTICR1_EXTI2_PC;	// external interrupt on PC[2]
@@ -352,7 +314,6 @@ void decrease_hours(void) {
 
 /*	I N T E R R U P T S   */
 
-#ifndef	DEMO
 /* '+' button -> PC0
  * '-' button -> PC1
  */
@@ -417,7 +378,6 @@ void EXTI0_1_IRQHandler(void) {
 
 	EXTI->PR |= (EXTI_PR_PR0 | EXTI_PR_PR1);
 }
-#endif
 
 void EXTI2_3_IRQHandler(void) {
 #ifdef	CONFIG_SWITCH
@@ -456,44 +416,11 @@ void EXTI2_3_IRQHandler(void) {
 }
 
 void EXTI4_15_IRQHandler(void) {
-#ifdef DEMO
-	/* '+' Button */
-	if(EXTI->PR & EXTI_PR_PR7) {
-		EXTI->PR |= EXTI_PR_PR7;
-		/* increment if minutes < 60 and hours < 24 */
-		if(minutes == 59) {
-			minutes = 0;
-			if(hours < 24)
-				hours += 1;
-		}
-		else if(system_state == Config) {
-			if(minutes < 60)
-				minutes += 1;
-		}
-		toggle_error_led();
-	}
-	/* '-' Button */
-	if(EXTI->PR & EXTI_PR_PR9) {
-		EXTI->PR |= EXTI_PR_PR9;
-		if(system_state == Config) {
-			if(minutes == 0) {
-				minutes = 59;
-				if(hours > 0)
-					hours -=1;
-			}
-			else if(minutes > 0)
-				minutes -= 1;
-		}
-		else
-			toggle_error_led();
-	}
-#endif
-#ifdef NO_TSC
 	/* Date button was pressed */
 	if(EXTI->PR & EXTI_PR_PR4) {
 		if(GPIOB->IDR & GPIO_IDR_4) {
 			BaseType_t xHigherPriorityTaskWoken = pdFALSE;
-			/* create 5s time to display the temperature, suspend the RTC update display task */
+			/* suspend the RTC update display task, create 5s time to display the temperature */
 			vTaskSuspend(thRTC);
 			display_date();
 			system_state = Button_Date;
@@ -501,29 +428,26 @@ void EXTI4_15_IRQHandler(void) {
 		}
 		EXTI->PR |= EXTI_PR_PR4;
 	}
-#endif
 
-#ifdef ON_OFF_SWITCH
 	/* on/off switch */
 	if(EXTI->PR & EXTI_PR_PR13) {
-		/* on/off switch is active low */
-		if(!(GPIOC->IDR & GPIO_IDR_13)) {
-			BaseType_t xHigherPriorityTaskWoken = pdFALSE;	// default value is pdFALSES
-			configASSERT(thOff != NULL);
-			vTaskNotifyGiveFromISR(thOff, &xHigherPriorityTaskWoken );
-			system_state = Deep_Sleep;
+		/* on/off switch needs to be active high */
+		if(GPIOC->IDR & GPIO_IDR_13) {
 			EXTI->PR |= EXTI_PR_PR13;		// clear interrupt
 			EXTI->RTSR |= EXTI_RTSR_TR13;	// enable rising trigger
 			EXTI->FTSR &= ~EXTI_FTSR_TR13; 	// disable falling trigger
-			portYIELD_FROM_ISR( xHigherPriorityTaskWoken );
-		}
-		if(GPIOC->IDR & GPIO_IDR_13) {
-			EXTI->RTSR &= ~EXTI_RTSR_TR13;	// disable rising trigger
-			EXTI->FTSR |= EXTI_FTSR_TR13; 	// enable falling trigger
 			system_state = Clock;
 		}
+		if(!(GPIOC->IDR & GPIO_IDR_13)) {
+			BaseType_t xHigherPriorityTaskWoken = pdFALSE;
+			EXTI->RTSR &= ~EXTI_RTSR_TR13;	// disable rising trigger
+			EXTI->FTSR |= EXTI_FTSR_TR13; 	// enable falling trigger
+			configASSERT(thOff != NULL);
+			vTaskNotifyGiveFromISR(thOff, &xHigherPriorityTaskWoken );
+			system_state = Deep_Sleep;
+			portYIELD_FROM_ISR( xHigherPriorityTaskWoken );
+		}
 	}
-#endif
 }
 
 
