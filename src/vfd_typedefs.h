@@ -52,6 +52,11 @@ typedef enum {
 	Fast = 2
 } Time_Change_Speed_E;
 
+typedef enum {
+	Reset = 0,
+	Use_RTC = 1
+} Time_Config_Options_E;
+
 typedef struct BLE_Message {
 	BLE_Message_Types_E message_type;
 	uint8_t	data_byte_one;

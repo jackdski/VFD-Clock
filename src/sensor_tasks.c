@@ -42,11 +42,12 @@ extern CircBuf_t * TX_Buffer;
 extern CircBuf_t * RX_Buffer;
 
 
-/*	T A S K   N O T I F I C A T I O N S   */
+/*	T A S K   H A N D L E S   */
 extern TaskHandle_t thRTC;
 extern TaskHandle_t thConfig;
 extern TaskHandle_t thBrightness_Adj;
 extern TaskHandle_t thAutoBrightAdj;
+extern TaskHandle_t thOff;
 
 /*	G L O B A L   V A R I A B L E S   */
 extern System_State_E system_state;

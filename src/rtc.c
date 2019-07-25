@@ -15,11 +15,15 @@
 
 /*	A P P L I C A T I O N   I N C L U D E S   */
 #include "rtc.h"
+#include "vfd_typedefs.h"
 #include "gpio.h"
 
-/*	S E M A P H O R E S   */
+/*	T A S K   H A N D L E S   */
 extern SemaphoreHandle_t sRTC;
 extern TaskHandle_t thRTC;
+
+/*	G L O B A L   V A R I A B L E S   */
+extern Time_Config_Options_E time_config;
 
 
 void init_rtc(void) {
@@ -48,9 +52,11 @@ void init_rtc(void) {
 	RTC->CR &= ~(RTC_CR_OSEL); 	// output disabled
 	RTC->CR |= (RTC_CR_BYPSHAD | RTC_CR_ALRAIE);
 
-	/* initialize time to 12:00:00 pm */
-	RTC->TR |= RTC_TR_PM;  // set to PM
-	RTC->TR = (1 & RTC_TR_HT) | (2 & RTC_TR_HU);
+	if(time_config == Reset) {
+		/* initialize time to 12:00:00 pm */
+		RTC->TR |= RTC_TR_PM;  // set to PM
+		RTC->TR = (1 & RTC_TR_HT) | (2 & RTC_TR_HU);
+	}
 
 	/* configure alarm */
 	RTC->CR &= ~RTC_CR_ALRAE;	// disable alarm

@@ -18,7 +18,7 @@
 #include "tubes.h"
 #include "pwm.h"
 
-/*	T A S K   N O T I F I C A T I O N S   */
+/*	T A S K   H A N D L E S   */
 extern TaskHandle_t thRTC;
 extern TaskHandle_t thConfig;
 

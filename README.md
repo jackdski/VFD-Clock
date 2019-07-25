@@ -7,7 +7,7 @@ temperature sensor, buttons, switches, and photoresistors are used.
     
 To accomplish this, several goals were outlined:
 - Use FreeRTOS to gain experience with RTOS's
-- Use the Hc-10 Bluetooth Low-Energy module to wirelessly communicate instructions time and date data from an iPhone
+- Use the HC-10 Bluetooth Low-Energy module to wirelessly communicate instructions time and date data from an iPhone
     - Update the time
     - Turn off auto-brightness adjustments
     - Select whether to display temperature or the date temporarily

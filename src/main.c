@@ -26,8 +26,6 @@
 #include "callbacks.h"
 #include "low_power.h"
 
-/*	T A S K S   */
-
 /*	F R E E R T O S   H O O K S   */
 void vApplicationMallocFailedHook( void );
 void vApplicationIdleHook( void );
@@ -40,7 +38,7 @@ void *malloc( size_t xSize );
 CircBuf_t * TX_Buffer;
 CircBuf_t * RX_Buffer;
 
-/*	T A S K   N O T I F I C A T I O N S   */
+/*	T A S K   H A N D L E S   */
 TaskHandle_t thRTC = NULL;
 TaskHandle_t thOff = NULL;
 TaskHandle_t thConfig = NULL;
@@ -68,12 +66,14 @@ volatile uint32_t light_value = 200;
 volatile uint16_t display_brightness = 50;
 volatile uint8_t usart_msg = 0;
 volatile uint8_t config_timer_callback_count = 0;
+volatile uint8_t holds = 0;
 
 Button_Status_E plus_button_status = Open;
 Button_Status_E minus_button_status = Open;
 Light_Flash_E indication_light_status = Off;
-volatile uint8_t holds = 0;
 Time_Change_Speed_E change_speed = Slow;
+Time_Config_Options_E time_config = Reset;
+
 
 /*	M A I N   */
 int main(void) {
@@ -90,14 +90,18 @@ int main(void) {
 		__WFI();  // enter DeepSleep/Standby Mode
     }
 
-    /* for now, check if device was set to Standby mode prior to running this code again */
+    /* check if device was set to Standby mode prior to running this code again
+     	 if it was, use the time in the RTC registers */
     if((PWR->CSR & PWR_CSR_SBF) == 1) {
 		GPIOA->ODR |= GPIO_ODR_5;
 		uint32_t i;
-		while(1) {
-			for(i=0; i < 100000; i++);
-			GPIOA->ODR ^= GPIO_ODR_5;
-		}
+		for(i=0; i < 100000; i++);
+		GPIOA->ODR &= ~GPIO_ODR_5;
+    	hours = read_rtc_hours();
+    	minutes = read_rtc_minutes();
+    	seconds = read_rtc_seconds();
+    	ampm = read_rtc_ampm();
+    	time_config = Use_RTC;
     }
 
 	/* initialize peripherals */
@@ -135,40 +139,15 @@ int main(void) {
     vTaskSuspend( thBrightness_Adj );
 
 	/* check that tasks were created successfully */
-	if(rtcReturned != pdPASS) {
-		toggle_error_led();
-		while(1);
-	}
-
-//    if(tempReturned != pdPASS) {
-//		toggle_error_led();
-//    	while(1);
-//    }
-
-    if(BLERXreturned != pdPASS) {
-		toggle_error_led();
-    	while(1);
-    }
-
-    if(BLETXreturned != pdPASS) {
-		toggle_error_led();
-    	while(1);
-    }
-
-    if(Lightreturned != pdPASS) {
-		toggle_error_led();
-    	while(1);
-    }
-
-    if(brightnessReturned != pdPASS) {
-		toggle_error_led();
-    	while(1);
-    }
-
-    if(blinkyReturned != pdPASS) {
-		toggle_error_led();
-    	while(1);
-    }
+	configASSERT(rtcReturned != pdPASS);
+	configASSERT(sleepReturned != pdPASS);
+	configASSERT(configReturned != pdPASS);
+	//	configASSERT(tempReturned != pdPASS);
+	configASSERT(BLERXreturned != pdPASS);
+	configASSERT(BLETXreturned != pdPASS);
+	configASSERT(Lightreturned != pdPASS);
+	configASSERT(brightnessReturned != pdPASS);
+	configASSERT(blinkyReturned != pdPASS);
 
     /* initialize software timers */
     three_sec_timer = xTimerCreate("3s Timer", pdMS_TO_TICKS(100), pdTRUE, 0, three_sec_timer_callback);
