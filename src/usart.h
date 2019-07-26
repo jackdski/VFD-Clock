@@ -12,6 +12,8 @@
 
 void init_usart(void);
 
+void uart_disable_peripheral(void);
+
 void uart_send_byte(uint8_t byte);
 
 void uart_send_bytes(uint8_t * str, uint8_t len);

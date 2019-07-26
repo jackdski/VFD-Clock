@@ -77,37 +77,50 @@ Time_Config_Options_E time_config = Reset;
 
 /*	M A I N   */
 int main(void) {
-	/* create circular buffers for BLE messages */
-	TX_Buffer = create_CircBuf(50);
-	RX_Buffer = create_CircBuf(50);
 
     /* check on/off switch position before initializing and starting scheduler,
      * should only happen the first time the device is powered up */
-    if(read_power_switch() == 0) {
-		GPIOA->ODR |= GPIO_ODR_5;
-		configure_for_deepsleep();
-		GPIOA->ODR &= ~GPIO_ODR_5;
-		__WFI();  // enter DeepSleep/Standby Mode
-    }
+//    if(read_power_switch() == 0) {
+//		GPIOA->ODR |= GPIO_ODR_5;
+//		configure_for_deepsleep();
+//		GPIOA->ODR &= ~GPIO_ODR_5;
+//		__WFI();  // enter DeepSleep/Standby Mode
+//    }
 
     /* check if device was set to Standby mode prior to running this code again
      	 if it was, use the time in the RTC registers */
-    if((PWR->CSR & PWR_CSR_SBF) == 1) {
-		GPIOA->ODR |= GPIO_ODR_5;
-		uint32_t i;
-		for(i=0; i < 100000; i++);
-		GPIOA->ODR &= ~GPIO_ODR_5;
+
+	RCC->APB1ENR |= RCC_APB1ENR_PWREN;
+
+    if(PWR->CSR & PWR_CSR_WUF) {
+		RCC->AHBENR |= RCC_AHBENR_GPIOAEN;
+    	GPIOA->ODR &= ~(GPIO_ODR_5);
+    	GPIOA->MODER |= (GPIO_MODER_MODER5_0);
+    	GPIOA->OTYPER &= ~(GPIO_OTYPER_OT_5);
     	hours = read_rtc_hours();
     	minutes = read_rtc_minutes();
     	seconds = read_rtc_seconds();
     	ampm = read_rtc_ampm();
     	time_config = Use_RTC;
+
+    	// use this to debug entering/exiting standby low-power mode
+		GPIOA->ODR |= GPIO_ODR_5;
+    	while(1) {
+    		uint32_t i;
+    		for(i=0; i < 10000; i++);
+    		GPIOA->ODR ^= GPIO_ODR_5;
+    	}
     }
+
+	/* create circular buffers for BLE messages */
+	TX_Buffer = create_CircBuf(50);
+	RX_Buffer = create_CircBuf(50);
 
 	/* initialize peripherals */
 	init_sysclock();
 	init_rtc();
 	init_led();
+	init_buttons();		// initialize first to be able to read switches and buttons
 	init_buttons();
 	init_i2c();
 	init_usart();
@@ -139,15 +152,15 @@ int main(void) {
     vTaskSuspend( thBrightness_Adj );
 
 	/* check that tasks were created successfully */
-	configASSERT(rtcReturned != pdPASS);
-	configASSERT(sleepReturned != pdPASS);
-	configASSERT(configReturned != pdPASS);
-	//	configASSERT(tempReturned != pdPASS);
-	configASSERT(BLERXreturned != pdPASS);
-	configASSERT(BLETXreturned != pdPASS);
-	configASSERT(Lightreturned != pdPASS);
-	configASSERT(brightnessReturned != pdPASS);
-	configASSERT(blinkyReturned != pdPASS);
+	configASSERT(rtcReturned == pdPASS);
+	configASSERT(sleepReturned == pdPASS);
+	configASSERT(configReturned = pdPASS);
+	//	configASSERT(tempReturned == pdPASS);
+	configASSERT(BLERXreturned == pdPASS);
+	configASSERT(BLETXreturned == pdPASS);
+	configASSERT(Lightreturned == pdPASS);
+	configASSERT(brightnessReturned == pdPASS);
+	configASSERT(blinkyReturned == pdPASS);
 
     /* initialize software timers */
     three_sec_timer = xTimerCreate("3s Timer", pdMS_TO_TICKS(100), pdTRUE, 0, three_sec_timer_callback);

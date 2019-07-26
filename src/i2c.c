@@ -92,6 +92,14 @@ void init_i2c(void) {
 #endif
 }
 
+void i2c_disable_peripheral(void) {
+#ifdef USE_I2C1
+	I2C1->CR1 &= ~I2C_CR1_PE;
+#else
+	I2C2->CR1 &= ~I2C_CR1_PE;
+#endif
+}
+
 void i2c_write_reg(uint8_t device, uint8_t reg, uint8_t data) {
 #ifdef USE_I2C1
 	while((I2C1->ISR & I2C_ISR_BUSY) == I2C_ISR_BUSY);

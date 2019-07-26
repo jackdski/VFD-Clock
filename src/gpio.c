@@ -118,8 +118,9 @@ void init_buttons(void) {
 	/* configure to pull-down */
 	GPIOC->PUPDR |=     ( GPIO_PUPDR_PUPDR0_1
 						| GPIO_PUPDR_PUPDR1_1
-						| GPIO_PUPDR_PUPDR2_1
-						| GPIO_PUPDR_PUPDR13_1);
+						| GPIO_PUPDR_PUPDR2_1);
+
+	GPIOC->PUPDR |= GPIO_PUPDR_PUPDR13_0;
 
 	/* Configure PC0 ('+') button interrupt */
 	SYSCFG->EXTICR[0] |= SYSCFG_EXTICR1_EXTI0_PC;	// external interrupt on PC[0]
@@ -151,8 +152,10 @@ void init_buttons(void) {
 	/* Configure PC13 (On/Off) switch interrupt */
 	SYSCFG->EXTICR[3] |= SYSCFG_EXTICR4_EXTI13_PC;	// external interrupt on PC[13]
 	EXTI->IMR |= EXTI_IMR_MR13; 	// select line 13 for PC13;
-	EXTI->RTSR |= EXTI_RTSR_TR13;	// enable rising trigger
-	EXTI->FTSR &= ~EXTI_FTSR_TR13; 	// disable falling trigger
+//	EXTI->RTSR |= EXTI_RTSR_TR13;	// enable rising trigger
+//	EXTI->FTSR &= ~EXTI_FTSR_TR13; 	// disable falling trigger
+	EXTI->RTSR &= ~EXTI_RTSR_TR13;	// disable rising trigger
+	EXTI->FTSR |= EXTI_FTSR_TR13; 	// enable falling trigger
 
 	/* enable interrupts on EXTI Lines 2 & 3 */
 	NVIC_EnableIRQ(EXTI2_3_IRQn);
@@ -205,6 +208,25 @@ void init_efuse_pins(void) {
 	// select AF0 on PA7
 	GPIOA->AFR[0] &=  ~(GPIO_AFRL_AFRL7); // AFRL (Ports 0-7)
 #endif
+
+}
+
+/*	L O W - P O W E R   */
+void configure_gpio_for_low_power(void) {
+	GPIOA->MODER = 0x2800000;
+	GPIOB->MODER = 0x00000000;
+	GPIOC->MODER = 0x00000000;
+	GPIOD->MODER = 0x00000000;
+	GPIOE->MODER = 0x00000000;
+	GPIOF->MODER = 0x00000000;
+
+	GPIOA->OTYPER = 0x00000000;
+	GPIOB->OTYPER = 0x00000000;
+	GPIOC->OTYPER = 0x00000000;
+	GPIOD->OTYPER = 0x00000000;
+	GPIOE->OTYPER = 0x00000000;
+	GPIOF->OTYPER = 0x00000000;
+
 
 }
 

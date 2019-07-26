@@ -88,6 +88,10 @@ void init_usart(void) {
 	NVIC_SetPriority(USART1_IRQn, 2);
 }
 
+void inline uart_disable_peripheral(void) {
+	USART1->CR1 &=  ~USART_CR1_UE;	/* disable USART */
+}
+
 void inline uart_send_byte(uint8_t byte) {
 	USART1->TDR = byte;
 	while(!(USART1->ISR & USART_ISR_TC));

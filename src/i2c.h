@@ -10,6 +10,8 @@
 
 void init_i2c(void);
 
+void i2c_disable_peripheral(void);
+
 void i2c_write_reg(uint8_t device, uint8_t reg, uint8_t data);
 
 uint8_t i2c_read_reg(uint8_t reg);

@@ -351,23 +351,18 @@ void prvBLE_Receive_Task(void *pvParameters) {
 }
 
 void prvTurnOffTask(void *pvParameters) {
-	/* this task will effectively reset the device when it is turned back on
-	 * 	therefore, it should not be necessary to stop the scheduler, but rather
-	 * 	prepare the hardware for the DeepSleep/Standby mode. This mode "stops all
-	 * 	the clocks in the core supply domain and disables the PLL and the HSI, HSI48,
-	 * 	HSI14 and HSE oscillators" and "SRAM and register contents are lost except for
-	 * 	 registers in the RTC domain and Standby circuitry".
-	 *  */
+	/* this task will effectively reset the device when it is turned back on.
+	 *  This mode "stops all the clocks in the core supply domain and disables
+	 *  the PLL and the HSI, HSI48, HSI14 and HSE oscillators" and "SRAM and
+	 *  register contents are lost except for registers in the RTC domain and
+	 *  Standby circuitry". */
 	static uint32_t thread_notification;
 	for( ;; ) {
 		thread_notification = ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
 		if(thread_notification != 0) {
-			GPIOA->ODR |= GPIO_ODR_5;
 			configure_for_deepsleep();
-			GPIOA->ODR &= ~GPIO_ODR_5;
-
-			// enter DeepSleep/Standby Mode
-			__WFI();
+			GPIOA->ODR |= GPIO_ODR_5;		// to see if the outputs are held
+			__WFI();	// enter DeepSleep/Standby Mode
 		}
 	}
 }
