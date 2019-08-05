@@ -80,12 +80,12 @@ int main(void) {
 
     /* check on/off switch position before initializing and starting scheduler,
      * should only happen the first time the device is powered up */
-//    if(read_power_switch() == 0) {
-//		GPIOA->ODR |= GPIO_ODR_5;
-//		configure_for_deepsleep();
-//		GPIOA->ODR &= ~GPIO_ODR_5;
-//		__WFI();  // enter DeepSleep/Standby Mode
-//    }
+    if(read_power_switch() == 0) {
+		GPIOA->ODR |= GPIO_ODR_5;
+		configure_for_deepsleep();
+		GPIOA->ODR &= ~GPIO_ODR_5;
+		__WFI();  // enter DeepSleep/Standby Mode
+    }
 
     /* check if device was set to Standby mode prior to running this code again
      	 if it was, use the time in the RTC registers */
@@ -102,14 +102,6 @@ int main(void) {
     	seconds = read_rtc_seconds();
     	ampm = read_rtc_ampm();
     	time_config = Use_RTC;
-
-    	// use this to debug entering/exiting standby low-power mode
-		GPIOA->ODR |= GPIO_ODR_5;
-    	while(1) {
-    		uint32_t i;
-    		for(i=0; i < 10000; i++);
-    		GPIOA->ODR ^= GPIO_ODR_5;
-    	}
     }
 
 	/* create circular buffers for BLE messages */

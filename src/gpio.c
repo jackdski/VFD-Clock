@@ -54,8 +54,7 @@ extern uint8_t holds;
 //#define		LED_GEN_PURP		6	// PA6
 
 /*	B U T T O N  &  S W I T C H E S   D E F I N E S   */
- #define		ON_OFF_SWITCH		13	// PC13 - WKUP2
-//#define		CONFIG_SWITCH		2	// PC2
+#define		ON_OFF_SWITCH		13	// PC13 - WKUP2
 
 #ifdef		DEMO
 #define		PLUS_BUTTON_PIN		7	// PA7

@@ -28,34 +28,71 @@
 
 
 void config_temperature_sensor_mpl() {
-	i2c_change_sadd(MPL3115A2);	// set MCP9808 as slave
+//	i2c_change_sadd(MPL3115A2);	// set MCP9808 as slave
+//	i2c_set_tx_direction();			// set to TX direction
+//	i2c_change_nbytes(3);			// send 3 byte
+//	i2c_send_start();
+//
+//	/* send CONFIG reg */
+//	i2c_send_byte((uint8_t)STATUS);
+//	i2c_send_byte(0x00);		// MSB data
+//	i2c_send_byte(0x01);		// LSB data
+//
+//	i2c_send_stop();
+
+	uint8_t buffer[3] = {(uint8_t)STATUS, 0x00, 0x01};
+
 	i2c_set_tx_direction();			// set to TX direction
+	i2c_change_sadd(MPL3115A2);		// set MCP9808 as slave
 	i2c_change_nbytes(3);			// send 3 byte
-	i2c_send_start();
+	I2C1->CR2 |= I2C_CR2_AUTOEND;	// send stop automatically
 
-	/* send CONFIG reg */
-	i2c_send_byte((uint8_t)STATUS);
-	i2c_send_byte(0x00);		// MSB data
-	i2c_send_byte(0x01);		// LSB data
+	I2C2->TXDR = buffer[0];
+	I2C2->CR2 |= I2C_CR2_START;		// start transmission
+	while((I2C2->CR2 & I2C_CR2_START));
 
-	i2c_send_stop();
+	uint8_t i;
+	for(i = 0; i < 3; i++) {
+		if(I2C2->ISR & I2C_ISR_TXIS) {
+			I2C2->TXDR = buffer[i];
+			while((I2C2->ISR & I2C_ISR_TXE) == 0);
+		}
+	}
+//	I2C2->CR2 |= I2C_CR2_STOP;	// sent since AUTOEND bit is high
 }
 
 void read_config_mpl() {
-	i2c_change_sadd(MPL3115A2);	// set MCP9808 as slave
-	i2c_set_tx_direction();			// set to TX direction
-	I2C1->CR2 &= ~I2C_CR2_AUTOEND;
-	i2c_change_nbytes(1);			// send 3 byte
-
-	i2c_send_start();				// send start but and address
-	i2c_send_byte((uint8_t)STATUS);	// want to read from CONFIG register
+//	i2c_change_sadd(MPL3115A2);	// set MCP9808 as slave
+//	i2c_set_tx_direction();			// set to TX direction
+//	I2C1->CR2 &= ~I2C_CR2_AUTOEND;
+//	i2c_change_nbytes(1);			// send 3 byte
+//
+//	i2c_send_start();				// send start but and address
+//	i2c_send_byte((uint8_t)STATUS);	// want to read from CONFIG register
+////	i2c_send_stop();
+//	i2c_change_nbytes(2);			// receive 2 bytes
+//	i2c_set_rx_direction();			// set to RX direction
+//	i2c_send_start();				// send repeated start
+//	uint8_t upper_byte = i2c_read_byte();
+//	uint8_t lower_byte = i2c_read_byte();
 //	i2c_send_stop();
-	i2c_change_nbytes(2);			// receive 2 bytes
+
+	i2c_change_sadd(MPL3115A2);	// set MCP9808 as slave
+	i2c_change_nbytes(3);			// send 3 byte
+	i2c_set_tx_direction();			// set to RX direction
+	I2C2->CR2 |= I2C_CR2_START;
+	while((I2C2->CR2 & I2C_CR2_START));
+	I2C2->TXDR = (uint8_t)STATUS;
 	i2c_set_rx_direction();			// set to RX direction
-	i2c_send_start();				// send repeated start
-	uint8_t upper_byte = i2c_read_byte();
-	uint8_t lower_byte = i2c_read_byte();
-	i2c_send_stop();
+	I2C2->CR2 |= I2C_CR2_START;
+	while((I2C2->CR2 & I2C_CR2_START));
+
+	uint8_t buffer[2];
+	while(!(I2C2->ISR & I2C_ISR_RXNE));
+	buffer[0] = I2C2->RXDR;
+	while(!(I2C2->ISR & I2C_ISR_RXNE));
+	buffer[1] = I2C2->RXDR;
+	I2C2->CR2 |= I2C_CR2_STOP;
 }
 
 void trigger_sample_mpl(void) {
