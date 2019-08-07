@@ -11,6 +11,8 @@
 /* Configure PA5 and PA6 as outputs to blink LEDs */
 void init_led(void);
 
+void init_power_switch(void);
+
 /* toggle the outputs on PA5 */
 void toggle_led(void);
 

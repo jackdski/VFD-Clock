@@ -127,15 +127,11 @@ void prvConfig_Task(void *pvParameters) {
 void prvTemperature_Task(void *pvParameters) {
 	static TickType_t delay_time = pdMS_TO_TICKS( 3000 ); // 3s
 	for( ;; ) {
-//		config_temperature_sensor();
-//		read_config_register();
-		// TODO:wake up temperature sensor();
-		// TODO: disable_shutdown_mode();
-		config_temperature_sensor_mpl();
-		read_config_mpl();
+		check_whoami_mpl();		// make sure sensor is available
+//		read_config_mpl();		//
+//		trigger_sample_mpl();
 		temperature = read_temp_c();
 		vTaskDelay(delay_time);		// 3s
-
 	}
 }
 

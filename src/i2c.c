@@ -12,12 +12,13 @@
 /*	A P P L I C A T I O N   I N C L U D E S   */
 #include "i2c.h"
 
+extern int8_t temperature;
+
 //#define I2C_TIMING			0x00201D2B 	// for 100kHz  // maybe 0x00281EAD?
-#define I2C_TIMING			0X0010020A	// for 400kHz
-#define I2C_ADDRESS 		0xCA
+//#define I2C_TIMING			0X0010020A	// for 400kHz
+//#define I2C_ADDRESS 		0xCA
 
 //#define	USE_I2C1
-
 
 void init_i2c(void) {
 #ifdef	USE_I2C1
@@ -31,8 +32,6 @@ void init_i2c(void) {
 //	GPIOF->AFR[0] |=  ((0x01 << GPIO_AFRL_AFRL0_Pos)
 //					  |(0x01 << GPIO_AFRL_AFRL1_Pos)); // AFRL (Ports 0-7)
 
-
-	/* alt */
 
 	/* select alternate function mode */
 	GPIOA->MODER = (GPIOA->MODER & ~(GPIO_MODER_MODER9 | GPIO_MODER_MODER10))
@@ -90,7 +89,85 @@ void init_i2c(void) {
 	I2C2->CR2 &= ~(I2C_CR2_ADD10); // select 7-bit address mode
 	I2C2->CR1 |= I2C_CR1_PE;
 #endif
+
+	check_whoami_mpl();		// make sure sensor is available
+	read_config_mpl();		//
+	trigger_sample_mpl();
 }
+
+//void I2C2_IRQHandler(void) {
+//	if ((I2C2->ISR & I2C_ISR_RXNE) == I2C_ISR_RXNE) {
+//		temperature = I2C2->RXDR;
+//	}
+//}
+
+
+void i2c_write_reg(uint8_t device, uint8_t reg, uint8_t data) {
+	i2c_change_sadd((uint8_t)device);	// set slave address
+
+	while((I2C2->ISR & I2C_ISR_BUSY) == I2C_ISR_BUSY);
+	i2c_set_tx_direction();			// set to TX direction
+	i2c_change_nbytes(2);			// send 1 byte
+
+	if ((I2C2->ISR & I2C_ISR_TXE) == I2C_ISR_TXE) {
+		I2C2->TXDR = (uint8_t)reg;
+		I2C2->CR2 |= I2C_CR2_START; /* Go */
+	}
+
+	while(!(I2C2->ISR & I2C_ISR_TXE)) {
+		if((I2C2->TXDR & I2C_ISR_ARLO) == 1) {
+			return;
+		}
+	}
+
+	if ((I2C2->ISR & I2C_ISR_TXE) == I2C_ISR_TXE) {
+		I2C2->TXDR = (uint8_t)data;
+	}
+
+	while(!(I2C2->ISR & I2C_ISR_TXE)) {
+		if((I2C2->TXDR & I2C_ISR_ARLO) == 1) {
+			return;
+		}
+	}
+	i2c_send_stop();
+}
+
+
+uint8_t i2c_read_reg(uint8_t device, uint8_t reg) {
+	i2c_change_sadd((uint8_t)device);	// set slave address
+
+	while((I2C2->ISR & I2C_ISR_BUSY) == I2C_ISR_BUSY);
+	i2c_set_tx_direction();			// set to TX direction
+	i2c_change_nbytes(1);			// send 1 byte
+
+	if ((I2C2->ISR & I2C_ISR_TXE) == I2C_ISR_TXE) {
+		I2C2->TXDR = (uint8_t)reg;
+		I2C2->CR2 |= I2C_CR2_START; /* Go */
+	}
+
+//	while((I2C2->ISR & I2C_ISR_TC) == 0) {
+	while(!(I2C2->ISR & I2C_ISR_TXE)) {
+		if((I2C2->TXDR & I2C_ISR_ARLO) == 1) {
+			return 0xFF;
+		}
+	}
+
+	I2C2->CR2 = 0x00000000;
+	i2c_change_nbytes(1);
+	i2c_change_sadd((uint8_t)device);	// set MPL3115A2 as slave
+	i2c_set_rx_direction();			// set to RX direction
+	i2c_send_start();				// send repeated start
+
+	uint8_t data = 0xFF;
+	while((I2C2->ISR & I2C_ISR_TC) == 0) {
+		if((I2C2->ISR & I2C_ISR_RXNE)) {
+			data = I2C2->RXDR;
+		}
+	}
+	i2c_send_stop();
+	return data;
+}
+
 
 void i2c_disable_peripheral(void) {
 #ifdef USE_I2C1
@@ -100,36 +177,6 @@ void i2c_disable_peripheral(void) {
 #endif
 }
 
-void i2c_write_reg(uint8_t device, uint8_t reg, uint8_t data) {
-#ifdef USE_I2C1
-	while((I2C1->ISR & I2C_ISR_BUSY) == I2C_ISR_BUSY);
-#else
-	while((I2C2->ISR & I2C_ISR_BUSY) == I2C_ISR_BUSY);
-#endif
-
-	i2c_change_sadd(device);
-	i2c_change_nbytes(1);
-	i2c_send_start();
-	i2c_send_byte(data);
-	i2c_send_stop();
-}
-
-uint8_t i2c_read_reg(uint8_t reg) {
-	while((I2C2->ISR & I2C_ISR_BUSY) == I2C_ISR_BUSY);
-	i2c_set_tx_direction();			// set to TX direction
-//	I2C1->CR2 &= ~I2C_CR2_AUTOEND;
-	i2c_change_nbytes(1);			// send 1 byte
-
-	i2c_send_start();				// send start bit and address
-	i2c_send_byte(reg);				// send register
-	i2c_change_nbytes(1);
-	i2c_set_rx_direction();			// set to RX direction
-	i2c_send_start();				// send repeated start
-	uint8_t data = i2c_read_byte();
-	i2c_send_stop();
-	return data;
-}
-
 /* Send a start byte on the I2C1 line */
 void inline i2c_send_start(void) {
 #ifdef	USE_I2C1
@@ -137,7 +184,7 @@ void inline i2c_send_start(void) {
 	while((I2C1->CR2 & I2C_CR2_START));
 #else
 	I2C2->CR2 |= I2C_CR2_START;
-	while((I2C2->CR2 & I2C_CR2_START));
+//	while((I2C2->CR2 & I2C_CR2_START));
 #endif
 }
 
@@ -182,7 +229,11 @@ void i2c_send_byte(uint8_t byte) {
 		I2C2->TXDR = byte;
 	}
 	/* wait for TX interrupt status and Transfer Complete bits to be set low */
- 	while(!(I2C2->ISR & (I2C_ISR_TXIS | I2C_ISR_TC)));
+ 	while(!(I2C2->ISR & (I2C_ISR_TXIS | I2C_ISR_TC))) {
+ 		if(I2C2->ISR & I2C_ISR_ARLO) {
+ 			break;
+ 		}
+ 	}
 #endif
 }
 
@@ -192,7 +243,11 @@ uint8_t i2c_read_byte(void) {
 	while(!(I2C1->ISR & I2C_ISR_RXNE));
 	return (I2C1->RXDR & 0xFF);
 #else
-	while(!(I2C2->ISR & I2C_ISR_RXNE));
+	while((I2C2->ISR & I2C_ISR_RXNE) == 0) {
+		if(I2C2->ISR & I2C_ISR_ARLO) {
+ 			break;
+ 		}
+	}
 	return (I2C2->RXDR & 0xFF);
 #endif
 }

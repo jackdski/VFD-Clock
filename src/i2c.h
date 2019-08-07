@@ -8,13 +8,17 @@
 #ifndef I2C_H_
 #define I2C_H_
 
+//#define I2C_TIMING			0x00201D2B 	// for 100kHz  // maybe 0x00281EAD?
+#define I2C_TIMING			0X0010020A	// for 400kHz
+#define I2C_ADDRESS 		0xCA
+
 void init_i2c(void);
 
 void i2c_disable_peripheral(void);
 
 void i2c_write_reg(uint8_t device, uint8_t reg, uint8_t data);
 
-uint8_t i2c_read_reg(uint8_t reg);
+uint8_t i2c_read_reg(uint8_t device, uint8_t reg);
 
 /* Send a start byte on the I2C1 line */
 void i2c_send_start(void);

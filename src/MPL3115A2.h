@@ -11,7 +11,9 @@
 
 void config_temperature_sensor_mpl();
 
-void read_config_mpl();
+void read_config_mpl(void);
+
+void check_whoami_mpl(void);
 
 void trigger_sample_mpl(void);
 

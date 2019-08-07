@@ -98,6 +98,12 @@ void init_led(void) {
 						/* | GPIO_OTYPER_OT_6 */ );
 }
 
+void init_power_switch(void) {
+	RCC->AHBENR |= RCC_AHBENR_GPIOCEN;
+	GPIOC->MODER &= ~( GPIO_MODER_MODER13);
+	GPIOC->PUPDR |= GPIO_PUPDR_PUPDR13_0;
+}
+
 /* configures buttons */
 void init_buttons(void) {
 //  PLUS_BUTTON_PIN		0	// PC0
@@ -225,8 +231,6 @@ void configure_gpio_for_low_power(void) {
 	GPIOD->OTYPER = 0x00000000;
 	GPIOE->OTYPER = 0x00000000;
 	GPIOF->OTYPER = 0x00000000;
-
-
 }
 
 /*	O U T P U T S   */

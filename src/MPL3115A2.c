@@ -7,6 +7,7 @@
 
 /*	D E V I C E   I N C L U D E S   */
 #include "stm32f091xc.h"
+#include "stm32f0xx_hal.h"
 #include <stdint.h>
 
 /*	A P P L I C A T I O N   I N C L U D E S   */
@@ -23,101 +24,43 @@
 #define OUT_T_DELTA_LSB     0x0B
 #define WHO_AM_I            0x0C
 #define CTRL_REG1           0x26
+#define CTRL_REG2			0x27
 #define PT_DATA_CFG         0x13
 #define ACTIVE              0xB9  //value to write
 
 
 void config_temperature_sensor_mpl() {
-//	i2c_change_sadd(MPL3115A2);	// set MCP9808 as slave
-//	i2c_set_tx_direction();			// set to TX direction
-//	i2c_change_nbytes(3);			// send 3 byte
-//	i2c_send_start();
-//
-//	/* send CONFIG reg */
-//	i2c_send_byte((uint8_t)STATUS);
-//	i2c_send_byte(0x00);		// MSB data
-//	i2c_send_byte(0x01);		// LSB data
-//
-//	i2c_send_stop();
 
-	uint8_t buffer[3] = {(uint8_t)STATUS, 0x00, 0x01};
-
-	i2c_set_tx_direction();			// set to TX direction
-	i2c_change_sadd(MPL3115A2);		// set MCP9808 as slave
-	i2c_change_nbytes(3);			// send 3 byte
-	I2C1->CR2 |= I2C_CR2_AUTOEND;	// send stop automatically
-
-	I2C2->TXDR = buffer[0];
-	I2C2->CR2 |= I2C_CR2_START;		// start transmission
-	while((I2C2->CR2 & I2C_CR2_START));
-
-	uint8_t i;
-	for(i = 0; i < 3; i++) {
-		if(I2C2->ISR & I2C_ISR_TXIS) {
-			I2C2->TXDR = buffer[i];
-			while((I2C2->ISR & I2C_ISR_TXE) == 0);
-		}
-	}
-//	I2C2->CR2 |= I2C_CR2_STOP;	// sent since AUTOEND bit is high
 }
 
 void read_config_mpl() {
-//	i2c_change_sadd(MPL3115A2);	// set MCP9808 as slave
-//	i2c_set_tx_direction();			// set to TX direction
-//	I2C1->CR2 &= ~I2C_CR2_AUTOEND;
-//	i2c_change_nbytes(1);			// send 3 byte
-//
-//	i2c_send_start();				// send start but and address
-//	i2c_send_byte((uint8_t)STATUS);	// want to read from CONFIG register
-////	i2c_send_stop();
-//	i2c_change_nbytes(2);			// receive 2 bytes
-//	i2c_set_rx_direction();			// set to RX direction
-//	i2c_send_start();				// send repeated start
-//	uint8_t upper_byte = i2c_read_byte();
-//	uint8_t lower_byte = i2c_read_byte();
-//	i2c_send_stop();
+	i2c_read_reg(MPL3115A2, STATUS);
+}
 
-	i2c_change_sadd(MPL3115A2);	// set MCP9808 as slave
-	i2c_change_nbytes(3);			// send 3 byte
-	i2c_set_tx_direction();			// set to RX direction
-	I2C2->CR2 |= I2C_CR2_START;
-	while((I2C2->CR2 & I2C_CR2_START));
-	I2C2->TXDR = (uint8_t)STATUS;
-	i2c_set_rx_direction();			// set to RX direction
-	I2C2->CR2 |= I2C_CR2_START;
-	while((I2C2->CR2 & I2C_CR2_START));
-
-	uint8_t buffer[2];
-	while(!(I2C2->ISR & I2C_ISR_RXNE));
-	buffer[0] = I2C2->RXDR;
-	while(!(I2C2->ISR & I2C_ISR_RXNE));
-	buffer[1] = I2C2->RXDR;
-	I2C2->CR2 |= I2C_CR2_STOP;
+void check_whoami_mpl(void) {
+	i2c_read_reg(MPL3115A2, WHO_AM_I);
 }
 
 void trigger_sample_mpl(void) {
-    // get and set OST low
-    uint8_t setting = i2c_read_reg((uint8_t)CTRL_REG1);
-    setting &= ~(1 << 1);                   // clear OST bit
-    i2c_write_reg(MPL3115A2, CTRL_REG1, setting);
+	i2c_change_sadd(MPL3115A2);	// set MPL3115A2 as slave
 
-    // set OST high again
-    setting = i2c_read_reg(CTRL_REG1);
-    setting |= (1 << 1);        // set OST bit
-    i2c_write_reg(MPL3115A2, CTRL_REG1, setting);
+	// set ST to 1 in CTRL_REG2
+	i2c_write_reg(MPL3115A2, CTRL_REG2, 0x01); // set CTRL_REG2
+	i2c_read_reg(MPL3115A2, CTRL_REG2);  // read CTRL_REG2
+
+	i2c_write_reg(MPL3115A2, CTRL_REG1, 0x03);	// set CTRL_REG1
+	i2c_read_reg(MPL3115A2, CTRL_REG1);	 // read CTRL_REG1
 }
 
 uint8_t read_temp_c(void) {
-	trigger_sample_mpl(); // trigger a new temp sample
-    uint8_t status = 0;
-    uint8_t temp_c;
-
+//	trigger_sample_mpl(); // trigger a new temp sample
+//    uint8_t status = 0;
+//    uint8_t temp_c;
     // wait for new temp data
-    while((status & 0x08) == 0) {
-        status = i2c_read_reg(OUT_T_MSB);
-    }
-    temp_c = i2c_read_reg(OUT_T_MSB);
-    return temp_c;
+//    while((status & 0x08) == 0) {
+//        status = i2c_read_reg(OUT_T_MSB);
+//    }
+   return i2c_read_reg(MPL3115A2, OUT_T_MSB);
 }
 
 uint8_t convert_to_fahrenheit(uint8_t temp_c) {
@@ -130,27 +73,27 @@ uint8_t read_temp_f() {
     return final_temp;
 }
 
-void set_mode_standby() {
-    uint8_t setting = i2c_read_reg(CTRL_REG1);  // read setting
-    setting &= ~(1 << 0);                       // set standby bit
-    i2c_write_reg(MPL3115A2, CTRL_REG1, setting);          // write to reg
-}
-
-void set_mode_active() {
-    uint8_t setting = i2c_read_reg(CTRL_REG1);  // read setting
-    setting |= (1 << 0);                        // set active bit
-    i2c_write_reg(MPL3115A2, CTRL_REG1, setting);          // write to reg
-}
-
-
-void set_oversample_rate(uint8_t sample_rate) {
-  if(sample_rate > 7) sample_rate = 7;
-  sample_rate <<= 3;
-  uint8_t setting = i2c_read_reg(CTRL_REG1);    // read setting
-  setting &= 0b11000111;                        // clear out OS bits
-  setting |= sample_rate;                       // use new OS bits
-  i2c_write_reg(MPL3115A2, CTRL_REG1, setting);            // write to reg
-}
+//void set_mode_standby() {
+////    uint8_t setting = i2c_read_reg(CTRL_REG1);  // read setting
+//    setting &= ~(1 << 0);                       // set standby bit
+//    i2c_write_reg(MPL3115A2, CTRL_REG1, setting);          // write to reg
+//}
+//
+//void set_mode_active() {
+////    uint8_t setting = i2c_read_reg(CTRL_REG1);  // read setting
+//    setting |= (1 << 0);                        // set active bit
+//    i2c_write_reg(MPL3115A2, CTRL_REG1, setting);          // write to reg
+//}
+//
+//
+//void set_oversample_rate(uint8_t sample_rate) {
+//  if(sample_rate > 7) sample_rate = 7;
+//  sample_rate <<= 3;
+////  uint8_t setting = i2c_read_reg(CTRL_REG1);    // read setting
+//  setting &= 0b11000111;                        // clear out OS bits
+//  setting |= sample_rate;                       // use new OS bits
+//  i2c_write_reg(MPL3115A2, CTRL_REG1, setting);            // write to reg
+//}
 
 
 void enable_event_flags() {

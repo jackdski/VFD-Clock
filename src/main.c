@@ -77,10 +77,11 @@ Time_Config_Options_E time_config = Reset;
 
 /*	M A I N   */
 int main(void) {
+	init_power_switch();	// initialize first to be able to read switches and buttons
 
     /* check on/off switch position before initializing and starting scheduler,
      * should only happen the first time the device is powered up */
-    if(read_power_switch() == 0) {
+    if((GPIOC->IDR & (1 << 13)) == 13) {
 		GPIOA->ODR |= GPIO_ODR_5;
 		configure_for_deepsleep();
 		GPIOA->ODR &= ~GPIO_ODR_5;
@@ -112,8 +113,7 @@ int main(void) {
 	init_sysclock();
 	init_rtc();
 	init_led();
-	init_buttons();		// initialize first to be able to read switches and buttons
-	init_buttons();
+//	init_buttons();
 	init_i2c();
 	init_usart();
 	configure_shift_pins();
@@ -129,7 +129,7 @@ int main(void) {
     /* Priority 4 Tasks */
 
 	/* Priority 3 Tasks */
-//	BaseType_t tempReturned = xTaskCreate( prvTemperature_Task, "TempSensor", configMINIMAL_STACK_SIZE, NULL, 3, NULL);
+	BaseType_t tempReturned = xTaskCreate( prvTemperature_Task, "TempSensor", configMINIMAL_STACK_SIZE, NULL, 3, NULL);
 	BaseType_t Lightreturned = xTaskCreate( prvLight_Task, "LightSensor", configMINIMAL_STACK_SIZE, (void *)NULL, 3, &thAutoBrightAdj);
 	BaseType_t BLERXreturned = xTaskCreate( prvBLE_Receive_Task, "BLE RX", 300, (void *)NULL, 3, NULL);
 	BaseType_t BLETXreturned = xTaskCreate( prvBLE_Send_Task, "BLE TX", 300, (void *)NULL, 3, NULL);

@@ -52,7 +52,7 @@ extern int8_t temperature;		/* -128 - 127 */
 #define ALL_TUBES	7
 
 /* pinout */
-#define NOE			8	// PA8 (PWM on Pin PA4)
+//#define NOE			8	// PA8 (PWM on Pin PA4)
 #define NSRCLR		11	// PA11
 #define SRCLK		9	// PC9
 #define RCLK		8	// PC8
