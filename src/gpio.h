@@ -37,8 +37,14 @@ uint8_t read_minus_button(void);
 /* reads current on/off switch value */
 uint8_t read_power_switch(void);
 
-/* Toggles the PA5 and PA6 LEDs */
+/* reads the connectivity status output of the HC-10 module*/
+void get_hc_10_status(void);
+
+/* LED response to user interaction */
 void prvBlink_LED(void *pvParameters);
+
+/* toggles the Error LED according to the error that occured */
+void prvError_LED(void * pvParameters);
 
 void increase_minutes(uint8_t mins);
 

@@ -25,6 +25,11 @@ typedef enum {
 } System_State_E;
 
 typedef enum {
+	Efuse_Error = -1,
+	Normal = 0
+} Efuse_Status_E;
+
+typedef enum {
 	Initialize_Msg = -3,
 	Resend_Request = -2,
 	Failure = -1,
@@ -35,6 +40,14 @@ typedef enum {
 	Temperature = 4,
 	On_Off_Cmd = 5
 } BLE_Message_Types_E;
+
+typedef enum {
+	BLE_Error = -1,
+	Disconnected = 0,
+	Connected = 1,
+	Sleep = 2,
+	Waking_Up = 3
+} HC_10_Status_E;
 
 typedef enum {
 	Open = 0,

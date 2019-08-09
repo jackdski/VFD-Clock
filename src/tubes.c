@@ -12,8 +12,6 @@
 /*	F R E E R T O S   I N C L U D E S   */
 #include "FreeRTOS.h"
 #include "task.h"
-#include "queue.h"
-#include "semphr.h"
 
 /*	A P P L I C A T I O N   I N C L U D E S   */
 #include "gpio.h"
@@ -52,12 +50,17 @@ extern int8_t temperature;		/* -128 - 127 */
 #define ALL_TUBES	7
 
 /* pinout */
-//#define NOE			8	// PA8 (PWM on Pin PA4)
+#define NOE			4	// PWM on Pin PA4
 #define NSRCLR		11	// PA11
 #define SRCLK		9	// PC9
 #define RCLK		8	// PC8
 
 #ifdef DEMO
+#define NOE			4	// PWM on Pin PA4
+#define NSRCLR		11	// PA11
+#define SRCLK		9	// PC9
+#define RCLK		8	// PC8
+
 #define SERIAL1		7	// PC7
 #define SERIAL2		6	// PC6
 #define SERIAL3		15	// PB15
@@ -65,12 +68,17 @@ extern int8_t temperature;		/* -128 - 127 */
 #define SERIAL5		13	// PB13
 #define SERIAL6		12	// PB12
 #else
-#define SERIAL1		12	// PB12
-#define SERIAL2		13	// PB13
-#define SERIAL3		14	// PB14
-#define SERIAL4		15	// PB15
-#define SERIAL5		6	// PC6
-#define SERIAL6		7	// PC7
+#define NOE			4	// PWM on Pin PA4
+#define NSRCLR		7	// PA7
+#define SRCLK		6	// PA6
+#define RCLK		4	// PC4
+
+#define SERIAL1		3	// PA3
+#define SERIAL2		5	// PA5
+#define SERIAL3		5	// PC5
+#define SERIAL4		2	// PB2
+#define SERIAL5		10	// PB10
+#define SERIAL6		11	// PB11
 #endif
 
 /* Configures the shift registers to be used */
@@ -78,6 +86,7 @@ void configure_shift_pins() {
 	/* AHB Peripheral Clock Enable Registers */
 	RCC->AHBENR |=	( RCC_AHBENR_GPIOAEN | RCC_AHBENR_GPIOBEN | RCC_AHBENR_GPIOCEN);
 
+#ifdef DEMO
 	/* set to LOW */
 	GPIOA->ODR &= ~(GPIO_ODR_8 | GPIO_ODR_11);
 	GPIOB->ODR &= ~(GPIO_ODR_12 | GPIO_ODR_13 | GPIO_ODR_14 | GPIO_ODR_15);
@@ -88,7 +97,7 @@ void configure_shift_pins() {
 	GPIOB->MODER |= (GPIO_MODER_MODER12_0 | GPIO_MODER_MODER13_0 | GPIO_MODER_MODER14_0 | GPIO_MODER_MODER15_0);
 	GPIOC->MODER |= (GPIO_MODER_MODER6_0 | GPIO_MODER_MODER7_0 | GPIO_MODER_MODER8_0 | GPIO_MODER_MODER9_0);
 
-	/* set to push pull */
+	/* set to push-pull */
 	GPIOA->OTYPER &= ~(GPIO_OTYPER_OT_8 | GPIO_OTYPER_OT_11);
 	GPIOB->OTYPER &= ~(GPIO_OTYPER_OT_12 | GPIO_OTYPER_OT_13 | GPIO_OTYPER_OT_14 | GPIO_OTYPER_OT_15);
 	GPIOC->OTYPER &= ~(GPIO_OTYPER_OT_6 | GPIO_OTYPER_OT_7 | GPIO_OTYPER_OT_8 | GPIO_OTYPER_OT_9);
@@ -99,36 +108,85 @@ void configure_shift_pins() {
 					 | GPIO_OSPEEDR_OSPEEDR14_0 | GPIO_OSPEEDR_OSPEEDR15_0);
 	GPIOC->OSPEEDR |= (GPIO_OSPEEDR_OSPEEDR6_0 | GPIO_OSPEEDR_OSPEEDR7_0
 					 | GPIO_OSPEEDR_OSPEEDR8_0 | GPIO_OSPEEDR_OSPEEDR9_0);
+
+#else
+	/* set to LOW */
+	GPIOA->ODR &= ~(GPIO_ODR_3 | GPIO_ODR_4 | GPIO_ODR_5 | GPIO_ODR_6 | GPIO_ODR_7);
+	GPIOB->ODR &= ~(GPIO_ODR_2 | GPIO_ODR_10 | GPIO_ODR_11);
+	GPIOC->ODR &= ~(GPIO_ODR_4 | GPIO_ODR_5);
+
+	/* set to output */
+	GPIOA->MODER |= (GPIO_MODER_MODER3_0 | GPIO_MODER_MODER4_0 | GPIO_MODER_MODER5_0 | GPIO_MODER_MODER6_0 | GPIO_MODER_MODER7_0);
+	GPIOB->MODER |= (GPIO_MODER_MODER2_0 | GPIO_MODER_MODER10_0 | GPIO_MODER_MODER11_0);
+	GPIOC->MODER |= (GPIO_MODER_MODER4_0 | GPIO_MODER_MODER5_0);
+
+	/* set to push-pull */
+	GPIOA->OTYPER &= ~(GPIO_OTYPER_OT_3 | GPIO_OTYPER_OT_4 | GPIO_OTYPER_OT_5 | GPIO_OTYPER_OT_6 | GPIO_OTYPER_OT_7);
+	GPIOB->OTYPER &= ~(GPIO_OTYPER_OT_2 | GPIO_OTYPER_OT_10 | GPIO_OTYPER_OT_11);
+	GPIOC->OTYPER &= ~(GPIO_OTYPER_OT_4 | GPIO_OTYPER_OT_5);
+
+	/* set to mid-speed */
+	GPIOA->OSPEEDR |= (GPIO_OSPEEDR_OSPEEDR3_0 | GPIO_OSPEEDR_OSPEEDR4_0 | GPIO_OSPEEDR_OSPEEDR5_0
+			| GPIO_OSPEEDR_OSPEEDR6_0 | GPIO_OSPEEDR_OSPEEDR7_0);
+	GPIOB->OSPEEDR |= (GPIO_OSPEEDR_OSPEEDR2_0 | GPIO_OSPEEDR_OSPEEDR10_0 | GPIO_OSPEEDR_OSPEEDR11_0);
+	GPIOC->OSPEEDR |= (GPIO_OSPEEDR_OSPEEDR4_0 | GPIO_OSPEEDR_OSPEEDR5_0);
+
+
+#endif
 }
 
 /* sets the SRCLK (Serial Clock) pin high */
 void srclk_high(void) {
+#ifdef DEMO
 	GPIOC->ODR |= (1 << SRCLK);
+#else
+	GPIOA->ODR |= (GPIO_ODR_6);
+#endif
 }
 
 /* sets the SRCLK (Serial Clock) pin low */
 void srclk_low(void) {
+#ifdef DEMO
 	GPIOC->ODR &= ~(1 << SRCLK);
+#else
+	GPIOA->ODR &= ~(GPIO_ODR_6);
+#endif
 }
 
 /* sets the !SRCLR (!Serial Clear) pin high */
 void srclr_latch_high(void) {
+#ifdef DEMO
 	GPIOA->ODR |= (1 << NSRCLR);
+#else
+	GPIOA->ODR |= (GPIOA_ODR_7);
+#endif
 }
 
 /* sets the !SRCLR (!Serial Clear) pin low */
 void srclr_latch_low(void) {
+#ifdef DEMO
 	GPIOA->ODR &= ~(1 << NSRCLR);
+#else
+	GPIOA->ODR &= ~(GPIOA_ODR_7);
+#endif
 }
 
 /* sets the RCLK (Register Clock) pin high */
 void rclk_high(void) {
+#ifdef DEMO
 	GPIOC->ODR |= (1 << RCLK);
+#else
+	GPIOC->ODR |= GPIO_ODR_4;
+#endif
 }
 
 /* sets the RCLK (Register Clock) pin high */
 void rclk_low(void) {
+#ifdef DEMO
 	GPIOC->ODR &= ~(1 << RCLK);
+#else
+	GPIOC->ODR &= ~GPIO_ODR_4;
+#endif
 }
 
 /* Pulse clock pin to shift a bit in the shift registers  */
@@ -175,12 +233,12 @@ void assign_pin(uint8_t tube, uint8_t val) {
 			case 5: GPIOB->ODR |= (1 << SERIAL5); break;
 			case 6: GPIOB->ODR |= (1 << SERIAL6); break;
 #else
-			case 1: GPIOB->ODR &= ~(1 << SERIAL1); break;
-			case 2: GPIOB->ODR &= ~(1 << SERIAL2); break;
-			case 3: GPIOB->ODR &= ~(1 << SERIAL3); break;
+			case 1: GPIOA->ODR &= ~(1 << SERIAL1); break;
+			case 2: GPIOA->ODR &= ~(1 << SERIAL2); break;
+			case 3: GPIOC->ODR &= ~(1 << SERIAL3); break;
 			case 4: GPIOB->ODR &= ~(1 << SERIAL4); break;
-			case 5: GPIOC->ODR &= ~(1 << SERIAL5); break;
-			case 6: GPIOC->ODR &= ~(1 << SERIAL6); break;
+			case 5: GPIOB->ODR &= ~(1 << SERIAL5); break;
+			case 6: GPIOB->ODR &= ~(1 << SERIAL6); break;
 #endif
 		}
     }
@@ -194,12 +252,12 @@ void assign_pin(uint8_t tube, uint8_t val) {
 			case 5: GPIOB->ODR &= ~(1 << SERIAL5); break;
 			case 6: GPIOB->ODR &= ~(1 << SERIAL6); break;
 #else
-			case 1: GPIOB->ODR &= ~(1 << SERIAL1); break;
-			case 2: GPIOB->ODR &= ~(1 << SERIAL2); break;
-			case 3: GPIOB->ODR &= ~(1 << SERIAL3); break;
+			case 1: GPIOA->ODR &= ~(1 << SERIAL1); break;
+			case 2: GPIOA->ODR &= ~(1 << SERIAL2); break;
+			case 3: GPIOC->ODR &= ~(1 << SERIAL3); break;
 			case 4: GPIOB->ODR &= ~(1 << SERIAL4); break;
-			case 5: GPIOC->ODR &= ~(1 << SERIAL5); break;
-			case 6: GPIOC->ODR &= ~(1 << SERIAL6); break;
+			case 5: GPIOB->ODR &= ~(1 << SERIAL5); break;
+			case 6: GPIOB->ODR &= ~(1 << SERIAL6); break;
 #endif
 		}
     }
@@ -291,8 +349,8 @@ void update_time(uint8_t decHrs, uint8_t decMins, uint8_t decSecs) {
         /* force shift */
         pulse_clock();
     }
-    rclk_low();
 
+    rclk_low();
     srclr_latch_low();	// set latch (!SRCLR0) low again
 }
 
@@ -319,8 +377,8 @@ void display_temperature(uint8_t temperature) {
         /* force shift */
         pulse_clock();
     }
-    rclk_low();
 
+    rclk_low();
     srclr_latch_low();	// set latch (!SRCLR0) low again
 }
 
@@ -346,8 +404,8 @@ void display_date(void) {
         /* force shift */
         pulse_clock();
     }
-    rclk_low();
 
+    rclk_low();
     srclr_latch_low();	// set latch (!SRCLR0) low again
 }
 

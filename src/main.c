@@ -6,8 +6,6 @@
 /*	F R E E R T O S   I N C L U D E S   */
 #include "FreeRTOS.h"
 #include "task.h"
-#include "queue.h"
-#include "semphr.h"
 #include "message_buffer.h"
 
 /*	A P P L I C A T I O N   I N C L U D E S   */
@@ -44,6 +42,7 @@ TaskHandle_t thOff = NULL;
 TaskHandle_t thConfig = NULL;
 TaskHandle_t thBrightness_Adj = NULL;
 TaskHandle_t thAutoBrightAdj = NULL;
+TaskHandle_t thErrorLED = NULL;
 
 /* S O F T W A R E   T I M E R S   */
 TimerHandle_t three_sec_timer = NULL;
@@ -71,8 +70,11 @@ volatile uint8_t holds = 0;
 Button_Status_E plus_button_status = Open;
 Button_Status_E minus_button_status = Open;
 Light_Flash_E indication_light_status = Off;
+Light_Flash_E error_light_status = Off;
 Time_Change_Speed_E change_speed = Slow;
 Time_Config_Options_E time_config = Reset;
+HC_10_Status_E ble_status = Disconnected;
+Efuse_Status_E efuse_status = Normal;
 
 
 /*	M A I N   */
@@ -113,7 +115,7 @@ int main(void) {
 	init_sysclock();
 	init_rtc();
 	init_led();
-//	init_buttons();
+	init_buttons();
 	init_i2c();
 	init_usart();
 	configure_shift_pins();
@@ -138,20 +140,23 @@ int main(void) {
 
 	/* Priority 1 Tasks*/
 	BaseType_t brightnessReturned = xTaskCreate( prvChange_Brightness_Task, "BrightnessAdj", configMINIMAL_STACK_SIZE, (void *)NULL, 1, &thBrightness_Adj);
-	BaseType_t blinkyReturned = xTaskCreate( prvBlink_LED, "Blinky", configMINIMAL_STACK_SIZE, (void *)NULL, 1, NULL);
+	BaseType_t errorLightReturned = xTaskCreate( prvError_LED, "ErrorLED", configMINIMAL_STACK_SIZE, (void *)NULL, 1, NULL);
+	BaseType_t blinkyReturned = xTaskCreate( prvBlink_LED, "Blinky", configMINIMAL_STACK_SIZE, (void *)NULL, 1, &thErrorLED);
 
-	/* Suspend the brightness adjustment task so it is only altered by prvLight_Task */
-    vTaskSuspend( thBrightness_Adj );
+	/* Suspended Tasks */
+    vTaskSuspend( thBrightness_Adj );	/* suspend the brightness adjustment task so it is only altered by prvLight_Task */
+    vTaskSuspend( thErrorLED );			/* suspend the error LED task so it only flashes when an error occurrs */
 
 	/* check that tasks were created successfully */
 	configASSERT(rtcReturned == pdPASS);
 	configASSERT(sleepReturned == pdPASS);
 	configASSERT(configReturned = pdPASS);
-	//	configASSERT(tempReturned == pdPASS);
+	configASSERT(tempReturned == pdPASS);
 	configASSERT(BLERXreturned == pdPASS);
 	configASSERT(BLETXreturned == pdPASS);
 	configASSERT(Lightreturned == pdPASS);
 	configASSERT(brightnessReturned == pdPASS);
+	configASSERT(errorLightReturned == pdPASS);
 	configASSERT(blinkyReturned == pdPASS);
 
     /* initialize software timers */

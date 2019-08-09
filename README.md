@@ -25,6 +25,8 @@ Progress:
 	- [x] I2C Driver
 	- [x] Communicate with temp. sensor over I2C
 	- [ ] Adapt to multiple temperature sensors
+		- [x] MPL3115A2
+		- [ ] MCP9808
 - [x] Control the display and use time from RTC
 	- [x] Write to shift registers
 	- [x] Implement task notification from RTC Alarm A to update tubes
@@ -37,7 +39,7 @@ Progress:
 	- [x] Add indicator LED that flashes quickly to indicate successful user input
 	- [ ] Update RTC registers with new values
 - [x] USART driver
-- [ ] Communicate with iPhone over BLE
+- [x] Communicate with iPhone over BLE
 	- [x] Control Brightness
 		- [x] Turn autobrightness on and off
 		- [x] Choose a brightness value (0-99)
@@ -46,8 +48,8 @@ Progress:
 	- [x] Create 5s software timer
 	- [x] Display date for 5 seconds
 	- [x] Display temperature for 5 seconds
-	- [ ] Deep Sleep mode
-- [ ] Low-Power
+	- [x] Deep Sleep mode
+- [x] Low-Power
 	- [x] Sleep mode in Idle Task
-	- [ ] Deep Sleep mode (turn off tubes, disable everything except for RTC) when power switch is in off position
+	- [x] Deep Sleep mode (turn off tubes, disable everything except for RTC) when power switch is in off position
 

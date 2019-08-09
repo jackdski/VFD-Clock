@@ -71,6 +71,8 @@ extern TimerHandle_t ten_sec_timer;
 extern Button_Status_E plus_button_status;
 extern Button_Status_E minus_button_status;
 extern Light_Flash_E indication_light_status;
+extern Light_Flash_E error_light_status;
+extern HC_10_Status_E ble_status;
 
 #define RTC_MAX_WAIT_TICKS		pdMS_TO_TICKS(100)
 
@@ -118,7 +120,6 @@ void prvConfig_Task(void *pvParameters) {
 			change_pwm_duty_cycle(0);
 			config_display_flashing = Off;
 		}
-
 		vTaskDelay(delay_time);
 	}
 }
@@ -127,11 +128,10 @@ void prvConfig_Task(void *pvParameters) {
 void prvTemperature_Task(void *pvParameters) {
 	static TickType_t delay_time = pdMS_TO_TICKS( 3000 ); // 3s
 	for( ;; ) {
-		check_whoami_mpl();		// make sure sensor is available
-//		read_config_mpl();		//
-//		trigger_sample_mpl();
+		check_whoami_mpl();  // make sure sensor is available
+		trigger_sample_mpl();
 		temperature = read_temp_c();
-		vTaskDelay(delay_time);		// 3s
+		vTaskDelay(delay_time);  // 3s
 	}
 }
 
@@ -188,7 +188,7 @@ void prvChange_Brightness_Task(void *pvParameters) {
 void prvBLE_Send_Task(void *pvParameters) {
 	static TickType_t delay_time = pdMS_TO_TICKS( 1000 ); // 1s
 	for( ;; ) {
-//		/* make sure that buffer is not empty */
+		/* make sure that buffer is not empty */
 		if(!is_empty_CircBuf(TX_Buffer)) {
 			uart_send_bytes(TX_Buffer->head,TX_Buffer->num_items);
 			reset_CircBuf(TX_Buffer);
@@ -201,6 +201,7 @@ void prvBLE_Send_Task(void *pvParameters) {
 void prvBLE_Receive_Task(void *pvParameters) {
 	static TickType_t delay_time = pdMS_TO_TICKS( 1000 );  // 500ms
 
+	/* strings to be sent */
 	static uint8_t temp_msg[] = "TEMP";
 	static uint8_t date_msg[] = "DATE";
 	static uint8_t chg_date_msg[] = "DATE:";
@@ -210,135 +211,164 @@ void prvBLE_Receive_Task(void *pvParameters) {
 	static uint8_t time_msg[] = "TIME:";
 	static uint8_t turnoff_msg[] = "TURNOFF";
 
+	/* strings that should be received */
+	static uint8_t wake_up_msg[] = "OK+WAKE";
+	static uint8_t sleep_msg[] = "OK+SLEEP";
+	static uint8_t baud_one[] = "OK+Set:9600";
+
 	for( ;; ) {
 		if(RX_Buffer->num_items > 0) {
 			size_t n = RX_Buffer->num_items;
 			size_t i;
 			uint8_t xRXMessage[n+1];
-			for(i = 0; i < n; i++)
+			for(i = 0; i < n; i++) {
 				xRXMessage[i] = remove_item(RX_Buffer);
+			}
 			xRXMessage[n] = '\0';
 
 			/* capitalize message */
-			for(i = 0; i < n; i++)
+			for(i = 0; i < n; i++) {
 				xRXMessage[i] = toupper(xRXMessage[i]);
+			}
 
 			/* decide what to do with the received message */
-			// "TEMP"
-			if(strcmp((const char *)xRXMessage, (const char *)temp_msg) == 0) {
-				system_state = BLE_Temperature;
-				uint8_t * msg = "TEMP:OK\0";
-				load_str_to_CircBuf(TX_Buffer, msg, 8);
-//				TimerHandle_t five_sec_timer = xTimerCreate("5s Timer", pdMS_TO_TICKS(5000), pdFALSE, 0, five_sec_timer_callback);
-				toggle_error_led();
-				vTaskSuspend(thRTC);
-				display_temperature(temperature);
-				xTimerStart(five_sec_timer, pdMS_TO_TICKS(100));
-			}
-			// "DATE"
-			else if(strcmp((const char *)xRXMessage, (const char *)date_msg) == 0) {
-				system_state = BLE_Date;
-				uint8_t * msg = "DATE:OK\0";
-				load_str_to_CircBuf(TX_Buffer, msg, 8);
-//				TimerHandle_t five_sec_timer = xTimerCreate("5s Timer", pdMS_TO_TICKS(5000), pdFALSE, 0, five_sec_timer_callback);
-				toggle_error_led();
-				vTaskSuspend(thRTC);
-				display_date();
-				xTimerStart(five_sec_timer, pdMS_TO_TICKS(100));
-			}
-			// "DATE:XX:XX"
-			else if(strncmp((const char *)xRXMessage, (const char *)chg_date_msg, 5) == 0) {
-				uint8_t temp_day, temp_month = 0xFF;
-				// change Month to xRXMessage[5:6]
-				if((xRXMessage[5] >= '0') && (xRXMessage[5] < '2') && (xRXMessage[6] >= '0') && (xRXMessage[6] <= '9'))
-					temp_month = ((xRXMessage[5] - 48) * 10) + (xRXMessage[6] - 48);
-				if(xRXMessage[7] != ':')
-					temp_month = 0xFF;
-				// change Day to xRXMessage[8:9]
-				if((xRXMessage[8] >= '0') && (xRXMessage[8] <= '3') && (xRXMessage[9] >= '0') && (xRXMessage[9] <= '9'))
-					temp_day = ((xRXMessage[8] - 48) * 10) + (xRXMessage[9] - 48);
-				// make sure that Month and Day values are valid, send "MSGFAIL" if not
-				if(temp_month == 0xFF || temp_day == 0xFF) {
-					uart_send_msgfail();
-				}
-				else {
-					change_rtc_date(temp_month, temp_day);
-					uint8_t * msg = "Date:OK\0";
+			if(ble_status == Connected) {
+				// "TEMP"
+				if(strcmp((const char *)xRXMessage, (const char *)temp_msg) == 0) {
+					system_state = BLE_Temperature;
+					uint8_t * msg = "TEMP:OK\0";
 					load_str_to_CircBuf(TX_Buffer, msg, 8);
+					toggle_error_led();
+					vTaskSuspend(thRTC);
+					display_temperature(temperature);
+					xTimerStart(five_sec_timer, pdMS_TO_TICKS(100));
 				}
-			}
-			// "AUTOBRIGHT
-			else if(strncmp((const char *)xRXMessage, (const char *)autobright_msg, 11) == 0) {
-				// "AUTOBRIGHT:ON"
-				if(strcmp((const char *)xRXMessage, (const char *)autobright_on_msg) == 0) {
-					uint8_t * msg = "Brightness ON\0";
-					load_str_to_CircBuf(TX_Buffer, msg, 14);
-					vTaskResume( thAutoBrightAdj );		// resume task
+				// "DATE"
+				else if(strcmp((const char *)xRXMessage, (const char *)date_msg) == 0) {
+					system_state = BLE_Date;
+					uint8_t * msg = "DATE:OK\0";
+					load_str_to_CircBuf(TX_Buffer, msg, 8);
+					toggle_error_led();
+					vTaskSuspend(thRTC);
+					display_date();
+					xTimerStart(five_sec_timer, pdMS_TO_TICKS(100));
 				}
-				// "AUTOBRIGHT:OFF"
-				else if(strcmp((const char *)xRXMessage, (const char *)autobright_off_msg) == 0) {
-					uint8_t * msg = "Brightness OFF\0";
-					load_str_to_CircBuf(TX_Buffer, msg, 15);
-					vTaskSuspend( thAutoBrightAdj );	// suspend task until On msg received
+				// "DATE:XX:XX"
+				else if(strncmp((const char *)xRXMessage, (const char *)chg_date_msg, 5) == 0) {
+					uint8_t temp_day, temp_month = 0xFF;
+					// change Month to xRXMessage[5:6]
+					if((xRXMessage[5] >= '0') && (xRXMessage[5] < '2') && (xRXMessage[6] >= '0') && (xRXMessage[6] <= '9'))
+						temp_month = ((xRXMessage[5] - 48) * 10) + (xRXMessage[6] - 48);
+					if(xRXMessage[7] != ':')
+						temp_month = 0xFF;
+					// change Day to xRXMessage[8:9]
+					if((xRXMessage[8] >= '0') && (xRXMessage[8] <= '3') && (xRXMessage[9] >= '0') && (xRXMessage[9] <= '9'))
+						temp_day = ((xRXMessage[8] - 48) * 10) + (xRXMessage[9] - 48);
+					// make sure that Month and Day values are valid, send "MSGFAIL" if not
+					if(temp_month == 0xFF || temp_day == 0xFF) {
+						uart_send_msgfail();
+					}
+					else {
+						change_rtc_date(temp_month, temp_day);
+						uint8_t * msg = "Date:OK\0";
+						load_str_to_CircBuf(TX_Buffer, msg, 8);
+					}
+				}
+				// "AUTOBRIGHT
+				else if(strncmp((const char *)xRXMessage, (const char *)autobright_msg, 11) == 0) {
+					// "AUTOBRIGHT:ON"
+					if(strcmp((const char *)xRXMessage, (const char *)autobright_on_msg) == 0) {
+						uint8_t * msg = "Brightness ON\0";
+						load_str_to_CircBuf(TX_Buffer, msg, 14);
+						vTaskResume( thAutoBrightAdj );		// resume task
+					}
+					// "AUTOBRIGHT:OFF"
+					else if(strcmp((const char *)xRXMessage, (const char *)autobright_off_msg) == 0) {
+						uint8_t * msg = "Brightness OFF\0";
+						load_str_to_CircBuf(TX_Buffer, msg, 15);
+						vTaskSuspend( thAutoBrightAdj );	// suspend task until On msg received
+					}
+					else {
+						// "AUTOBRIGHT:XX"
+						vTaskSuspend( thAutoBrightAdj );	// suspend task until On msg received
+						// check if in correct range
+						if((xRXMessage[11] >= '0') && (xRXMessage[11] <= '9') && (xRXMessage[12] >= '0') && (xRXMessage[12] <= '9')) {
+							// change brightness to xRXMessage[11:12]
+							uint8_t * msg = "BRIGHTNESS:OK\0";
+							load_str_to_CircBuf(TX_Buffer, msg, 14);
+							target_brightness = ((xRXMessage[11] - 48) * 10) + (xRXMessage[12] - 48);
+							vTaskResume( thBrightness_Adj );		// resume task that changes brightness
+						}
+						else {  // not in range 0-99
+							uint8_t * msg = "Use values between 0 and 99\0";
+							load_str_to_CircBuf(TX_Buffer, msg, 29);
+						}
+					}
+				}
+				// TIME:XX:XX:X
+				else if(strncmp((const char *)xRXMessage, (const char *)time_msg, 5) == 0) {
+					uint8_t temp_hours, temp_mins, temp_ampm = 0xFF;
+					// change hours to xRXMessage[5:6]
+					if((xRXMessage[5] >= '0') && (xRXMessage[5] < '2') && (xRXMessage[6] >= '0') && (xRXMessage[6] <= '9')) {
+						temp_hours = ((xRXMessage[5] - 48) * 10) + (xRXMessage[6] - 48);
+					}
+
+					if(xRXMessage[7] != ':') {
+						temp_hours = 0xFF;
+					}
+
+					// change minutes to xRXMessage[8:9]
+					if((xRXMessage[8] >= '0') && (xRXMessage[8] <= '5') && (xRXMessage[9] >= '0') && (xRXMessage[9] <= '9')) {
+						temp_mins = ((xRXMessage[8] - 48) * 10) + (xRXMessage[9] - 48);
+					}
+
+					if(xRXMessage[10] != ':') {
+							temp_mins = 0xFF;
+					}
+
+					// set am/pm value
+					if(xRXMessage[11] == 'A') {
+						temp_ampm = 0;	// set RTC to AM
+					}
+					else if(xRXMessage[11] == 'P') {
+						temp_ampm = 1;	// set RTC to PM
+					}
+
+					// make sure no errors exist and update time/display
+					if(temp_hours == 0xFF || temp_mins == 0xFF || temp_ampm == 0xFF) {
+						uart_send_msgfail();
+					}
+					// change time on RTC and update
+					else {
+						hours = temp_hours;
+						minutes = temp_mins;
+						seconds = 0;
+						change_rtc_time(hours, minutes, seconds, temp_ampm);
+						update_time(hours, minutes, seconds);
+					}
+				}
+				//  "TURNOFF"
+				else if(strcmp((const char *)xRXMessage, (const char *)turnoff_msg) == 0) {
+					uint8_t * msg = "Remote Turn Off not available\0";
+					load_str_to_CircBuf(TX_Buffer, msg, 30);
 				}
 				else {
-					// "AUTOBRIGHT:XX"
-					vTaskSuspend( thAutoBrightAdj );	// suspend task until On msg received
-					// check if in correct range
-					if((xRXMessage[11] >= '0') && (xRXMessage[11] <= '9') && (xRXMessage[12] >= '0') && (xRXMessage[12] <= '9')) {
-						// change brightness to xRXMessage[11:12]
-						uint8_t * msg = "BRIGHTNESS:OK\0";
-						load_str_to_CircBuf(TX_Buffer, msg, 14);
-						target_brightness = ((xRXMessage[11] - 48) * 10) + (xRXMessage[12] - 48);
-						vTaskResume( thBrightness_Adj );		// resume task that changes brightness
-					}
-					else {  // not in range 0-99
-						uint8_t * msg = "Use values between 0 and 99\0";
-						load_str_to_CircBuf(TX_Buffer, msg, 29);
-					}
-				}
-			}
-			// TIME:XX:XX:X
-			else if(strncmp((const char *)xRXMessage, (const char *)time_msg, 5) == 0) {
-				uint8_t temp_hours, temp_mins, temp_ampm = 0xFF;
-				// change hours to xRXMessage[5:6]
-				if((xRXMessage[5] >= '0') && (xRXMessage[5] < '2') && (xRXMessage[6] >= '0') && (xRXMessage[6] <= '9'))
-					temp_hours = ((xRXMessage[5] - 48) * 10) + (xRXMessage[6] - 48);
-				if(xRXMessage[7] != ':')
-					temp_hours = 0xFF;
-				// change minutes to xRXMessage[8:9]
-				if((xRXMessage[8] >= '0') && (xRXMessage[8] <= '5') && (xRXMessage[9] >= '0') && (xRXMessage[9] <= '9'))
-					temp_mins = ((xRXMessage[8] - 48) * 10) + (xRXMessage[9] - 48);
-				if(xRXMessage[10] != ':')
-						temp_mins = 0xFF;
-
-				// set am/pm value
-				if(xRXMessage[11] == 'A')
-					temp_ampm = 0;	// set RTC to AM
-				else if(xRXMessage[11] == 'P')
-					temp_ampm = 1;	// set RTC to PM
-
-				// make sure no errors exist and update time/display
-				if(temp_hours == 0xFF || temp_mins == 0xFF || temp_ampm == 0xFF) {
+					// send "MSGFAIL" back since an incorrect message was received
 					uart_send_msgfail();
 				}
-				// change time on RTC and update
-				else {
-					hours = temp_hours;
-					minutes = temp_mins;
-					seconds = 0;
-					change_rtc_time(hours, minutes, seconds, temp_ampm);
-					update_time(hours, minutes, seconds);
+			}
+			/* check if it is a response to an HC-10 command */
+			else if(ble_status != Connected) {
+				if(strcmp((const char *)xRXMessage, (const char *)wake_up_msg) == 0) {
+					get_hc_10_status();
 				}
-			}
-			//  "TURNOFF"
-			else if(strcmp((const char *)xRXMessage, (const char *)turnoff_msg) == 0) {
-				uint8_t * msg = "Remote Turn Off not available\0";
-				load_str_to_CircBuf(TX_Buffer, msg, 30);
-			}
-			else {
-				// send "MSGFAIL" back since an incorrect message was received
-				uart_send_msgfail();
+				else if(strcmp((const char *)xRXMessage, (const char *)sleep_msg) == 0) {
+					ble_status = Sleep;
+				}
+				else {
+					ble_status = BLE_Error;
+					error_light_status = Flashing;
+				}
 			}
 			reset_CircBuf(RX_Buffer);
 		}

@@ -24,9 +24,11 @@
 extern uint8_t usart_msg;
 extern CircBuf_t * TX_Buffer;
 extern CircBuf_t * RX_Buffer;
+extern HC_10_Status_E ble_status;
 
 #define 	USART1_TX	9	// PA9
 #define		USART1_RX	10	// PA10
+#define		HC10_STATUS	8	// PA8
 
 /*	U A R T   F U N C T I O N S   */
 void init_usart(void) {
@@ -86,6 +88,22 @@ void init_usart(void) {
 	/* enable USART1 interrupts */
 	NVIC_EnableIRQ(USART1_IRQn);
 	NVIC_SetPriority(USART1_IRQn, 2);
+
+#ifdef HC10_STATUS
+	/* make sure GPIOA is enabled */
+	RCC->AHBENR |= RCC_AHBENR_GPIOAEN;
+
+	GPIOA->MODER &= ~(GPIO_MODER_MODER8);	// set to input
+	GPIOA->PUPDR |= (GPIO_PUPDR_PUPDR8_1);  // configure to pull-down
+
+	/* Configure PA8 (HC-10 Status) interrupt */
+	SYSCFG->EXTICR[3] |= SYSCFG_EXTICR3_EXTI8_PA;	// external interrupt on PA[8]
+	EXTI->IMR |= EXTI_IMR_MR9; 		// select line 9 for PA8;
+	EXTI->RTSR |= EXTI_RTSR_TR9;	// enable rising trigger
+	EXTI->FTSR &= ~EXTI_FTSR_TR9; 	// disable falling trigger
+
+	NVIC_SetPriority(EXTI4_15_IRQn, 1);
+#endif
 }
 
 void inline uart_disable_peripheral(void) {
@@ -136,10 +154,18 @@ void request_hc_10_baud_rate(void) {
 	uart_send_bytes(baud_str, 8);
 }
 
+
+/* Will set PIO11 to the connected status pin */
+void set_hc_10_status_pin(void) {
+	uint8_t sys_led_str[8] = "AT+PIO11";
+	uart_send_bytes(sys_led_str, 8);
+}
+
 /* wakes up the HC-10 Bluetooth Module */
 void wake_up_hc_10(void) {
 	uint8_t wake_up_text[81] = "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx";
 	uart_send_bytes(wake_up_text, 81);
+	ble_status = Waking_Up;
 	// should receive "OK+WAKE" back
 }
 

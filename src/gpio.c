@@ -40,34 +40,43 @@ extern TimerHandle_t button_timer;
 extern Button_Status_E plus_button_status;
 extern Button_Status_E minus_button_status;
 extern Light_Flash_E indication_light_status;
+extern Light_Flash_E error_light_status;
 extern Time_Change_Speed_E change_speed;
+extern HC_10_Status_E ble_status;
+extern Efuse_Status_E efuse_status;
 
 extern uint8_t holds;
 
-#define		NO_TSC
 //#define		EFUSE_CURRENT_SENSE
 
+#define 	DEMO
+
 /*	L E D   D E F I N E S   */
+#ifdef		DEMO
+#define		ERROR_LED			9	// PC9
+#define		INDICATON_LED		8	// PC8
+#else
 #define		ERROR_LED			0	// PA0
 #define		RTC_LED				1	// PA1
 #define		INDICATOR_LED		5	// PA5
-//#define		LED_GEN_PURP		6	// PA6
+#endif
 
 /*	B U T T O N  &  S W I T C H E S   D E F I N E S   */
-#define		ON_OFF_SWITCH		13	// PC13 - WKUP2
-
 #ifdef		DEMO
-#define		PLUS_BUTTON_PIN		7	// PA7
-#define		MINUS_BUTTON_PIN	8	// PA8
-#else
+#define		ON_OFF_SWITCH		13	// PC13 - WKUP2
 #define		PLUS_BUTTON_PIN		0	// PC0
 #define		MINUS_BUTTON_PIN	1	// PC1
-#endif
-
-#ifdef		NO_TSC
 #define		TEMPERATURE_BUTTON	3	// PB3
 #define		DATE_BUTTON			4	// PB4
+#else
+#define		ON_OFF_SWITCH		13	// PC13 - WKUP2
+#define		PLUS_BUTTON_PIN		7	// PB7
+#define		MINUS_BUTTON_PIN	8	// PB8
+#define		TEMPERATURE_BUTTON	3	// PC3
+#define		DATE_BUTTON			12	// PB12
+#define		HC10_STATUS			8	// PA8 (EXTI-9)
 #endif
+
 
 /* E F U S E   D E F I N E S   */
 #define 	EFUSE_FAULT			6	// PB6 - input.
@@ -82,6 +91,7 @@ extern uint8_t holds;
  * General Purpose LED
  */
 void init_led(void) {
+#ifdef DEMO
 	RCC->AHBENR |= RCC_AHBENR_GPIOAEN;
 	GPIOA->ODR &= ~(GPIO_ODR_0 | GPIO_ODR_1 | GPIO_ODR_5 | GPIO_ODR_6);	// init LOW
 
@@ -96,6 +106,18 @@ void init_led(void) {
 						| GPIO_OTYPER_OT_1
 						| GPIO_OTYPER_OT_5
 						/* | GPIO_OTYPER_OT_6 */ );
+#else
+	RCC->AHBENR |= RCC_AHBENR_GPIOCEN;
+	GPIOA->ODR &= ~(GPIO_ODR_8 | GPIO_ODR_9);  // init LOW
+
+	/* set to output */
+	GPIOC->MODER |= 	( GPIO_MODER_MODER8_0
+						| GPIO_MODER_MODER9_0);
+
+	/* set to push-pull */
+	GPIOA->OTYPER &=   ~( GPIO_OTYPER_OT_8
+						| GPIO_OTYPER_OT_9);
+#endif
 }
 
 void init_power_switch(void) {
@@ -106,9 +128,9 @@ void init_power_switch(void) {
 
 /* configures buttons */
 void init_buttons(void) {
+#ifdef	DEMO
 //  PLUS_BUTTON_PIN		0	// PC0
 //	MINUS_BUTTON_PIN	1	// PC1
-//	CONFIG_SWITCH		2	// PC2
 //	ON_OFF_SWITCH		13 	// PC13
 
 	/* make sure GPIOC is enabled */
@@ -166,7 +188,6 @@ void init_buttons(void) {
 	NVIC_EnableIRQ(EXTI2_3_IRQn);
 	NVIC_SetPriority(EXTI2_3_IRQn, 1);
 
-#ifdef NO_TSC
 	/* set to input */
 	GPIOB->MODER &= ~(GPIO_MODER_MODER3 | GPIO_MODER_MODER4);
 
@@ -185,7 +206,67 @@ void init_buttons(void) {
 	EXTI->RTSR |= EXTI_RTSR_TR4;	// enable rising trigger
 	EXTI->FTSR &= ~EXTI_FTSR_TR4; 	// disable falling trigger
 
+	/* enable interrupts on EXTI Lines */
+	NVIC_EnableIRQ(EXTI4_15_IRQn);
+	NVIC_SetPriority(EXTI4_15_IRQn, 1);
+
+#else
+	// 	PLUS_BUTTON_PIN		7	// PB7
+	// 	MINUS_BUTTON_PIN	8	// PB8
+	// 	TEMPERATURE_BUTTON	3	// PC3
+	// 	DATE_BUTTON			12	// PB12
+	//	ON_OFF_SWITCH		13 	// PC13
+
+	/* make sure GPIOC is enabled */
+	RCC->AHBENR |= (RCC_AHBENR_GPIOBEN | RCC_AHBENR_GPIOCEN);
+
+	/* set to input */
+	GPIOB->MODER &= ~(GPIO_MODER_MODER7 | GPIO_MODER_MODER8 | GPIO_MODER_MODER12);
+	GPIOC->MODER &= ~(GPIO_MODER_MODER3 | GPIO_MODER_MODER13);
+
+	/* configure to pull-down */
+	GPIOB->PUPDR |= (GPIO_PUPDR_PUPDR7_1 | GPIO_PUPDR_PUPDR8_1 | GPIO_PUPDR_PUPDR12_1);
+	GPIOC->PUPDR |= ( GPIO_PUPDR_PUPDR3_1);
+
+	/* configure to pull-up */
+	GPIOC->PUPDR |= GPIO_PUPDR_PUPDR13_0;
+
+	/* Configure PB7 ('+') button interrupt */
+	SYSCFG->EXTICR[1] |= SYSCFG_EXTICR2_EXTI7_PB;	// external interrupt on PB70]
+	EXTI->IMR |= EXTI_IMR_MR7; 		// select line 0 for PB7;
+	EXTI->RTSR |= EXTI_RTSR_TR7;	// enable rising trigger
+	EXTI->FTSR &= ~EXTI_FTSR_TR7; 	// disable falling trigger
+
+	/* Configure PB8 ('-') button interrupt */
+	SYSCFG->EXTICR[2] |= SYSCFG_EXTICR3_EXTI8_PB;	// external interrupt on PB[8]
+	EXTI->IMR |= EXTI_IMR_MR8; 		// select line 1 for PB8;
+	EXTI->RTSR |= EXTI_RTSR_TR8;	// enable rising trigger
+	EXTI->FTSR &= ~EXTI_FTSR_TR8; 	// disable falling trigger
+
+	/* Configure PC3 (Temperature) Button interrupt */
+	SYSCFG->EXTICR[0] |= SYSCFG_EXTICR1_EXTI3_PC;	// external interrupt on PC[3]
+	EXTI->IMR |= EXTI_IMR_MR3; 	// select line 3 for PC3;
+	EXTI->RTSR |= EXTI_RTSR_TR3;	// enable rising trigger
+	EXTI->FTSR &= ~EXTI_FTSR_TR3; 	// disable falling trigger
+
+	/* Configure PB12 (Date) button interrupt */
+	SYSCFG->EXTICR[3] |= SYSCFG_EXTICR4_EXTI12_PB;	// external interrupt on PB[12]
+	EXTI->IMR |= EXTI_IMR_MR12; 		// select line 12 for PB12;
+	EXTI->RTSR |= EXTI_RTSR_TR12;	// enable rising trigger
+	EXTI->FTSR &= ~EXTI_FTSR_TR12; 	// disable falling trigger
+
+	/* Configure PC13 (On/Off) switch interrupt */
+	SYSCFG->EXTICR[3] |= SYSCFG_EXTICR4_EXTI13_PC;	// external interrupt on PC[13]
+	EXTI->IMR |= EXTI_IMR_MR13; 	// select line 13 for PC13;
+	EXTI->RTSR &= ~EXTI_RTSR_TR13;	// disable rising trigger
+	EXTI->FTSR |= EXTI_FTSR_TR13; 	// enable falling trigger
+
+
 	/* enable interrupts on EXTI Lines 2 & 3 */
+	NVIC_EnableIRQ(EXTI2_3_IRQn);
+	NVIC_SetPriority(EXTI2_3_IRQn, 1);
+
+	/* enable interrupts on EXTI Lines */
 	NVIC_EnableIRQ(EXTI4_15_IRQn);
 	NVIC_SetPriority(EXTI4_15_IRQn, 1);
 #endif
@@ -214,6 +295,11 @@ void init_efuse_pins(void) {
 	GPIOA->AFR[0] &=  ~(GPIO_AFRL_AFRL7); // AFRL (Ports 0-7)
 #endif
 
+	/* Configure PB6 EFUSE Fault interrupt */
+	SYSCFG->EXTICR[1] |= SYSCFG_EXTICR2_EXTI6_PB;	// external interrupt on PB[6]
+	EXTI->IMR |= EXTI_IMR_MR6; 		// select line 6 for PB6;
+	EXTI->RTSR |= EXTI_RTSR_TR4;	// enable rising trigger
+	EXTI->FTSR &= ~EXTI_FTSR_TR4; 	// disable falling trigger
 }
 
 /*	L O W - P O W E R   */
@@ -266,9 +352,23 @@ uint8_t inline read_power_switch(void) {
 	return (GPIOC->IDR & GPIO_IDR_13);
 }
 
+/* 	Low = Unconnected output
+* 	High = Connected output */
+void get_hc_10_status(void) {
+	if(GPIOA->IDR & GPIO_IDR_8) {	// connected
+		ble_status = Connected;
+	}
+	else if(!(GPIOA->IDR & GPIO_IDR_8)) {
+		ble_status = Disconnected;
+	}
+	else {
+		ble_status = BLE_Error;
+	}
+}
+
 /*   T A S K S   */
 
-/* Toggles the PA5 and PA6 LEDs */
+/* Toggles and flashes the Indication LED */
 void prvBlink_LED(void *pvParameters) {
 	const TickType_t delay_time = pdMS_TO_TICKS(100); // 0.1s period
 	const TickType_t delay_time_long = pdMS_TO_TICKS(500); // 0.5s period
@@ -290,6 +390,24 @@ void prvBlink_LED(void *pvParameters) {
 	}
 }
 
+/* Flashes the Error LED according to error type */
+void prvError_LED(void * pvParameters) {
+	const TickType_t delay_time_ble = pdMS_TO_TICKS(3000); 	// 3s
+	const TickType_t delay_time_efuse = pdMS_TO_TICKS(200);	// 0.2s
+
+	for( ;; ) {
+		if(error_light_status == Flashing) {
+			if(efuse_status == Efuse_Error) {
+				toggle_error_led();
+				vTaskDelay(delay_time_efuse);
+			}
+			else if(ble_status == BLE_Error) {
+				toggle_error_led();
+				vTaskDelay(delay_time_ble);
+			}
+		}
+	}
+}
 
 /*	G E N E R A L   */
 void increase_minutes(uint8_t mins) {
@@ -300,8 +418,9 @@ void increase_minutes(uint8_t mins) {
 			hours = 1;
 			ampm ^= 1;	// change am/pm
 		}
-		else
+		else {
 			hours += 1;
+		}
 	}
 }
 
@@ -313,8 +432,9 @@ void decrease_minutes(uint8_t mins) {
 			hours = 12;
 			ampm ^= 1;	// change am/pm
 		}
-		else
+		else {
 			hours -= 1;
+		}
 	}
 }
 
@@ -323,8 +443,9 @@ void increase_hours(void) {
 		hours = 1;
 		ampm ^= 1;	// change am/pm
 	}
-	else
+	else {
 		hours += 1;
+	}
 }
 
 void decrease_hours(void) {
@@ -332,8 +453,9 @@ void decrease_hours(void) {
 		hours = 12;
 		ampm ^= 1;	// change am/pm
 	}
-	else
+	else {
 		hours -= 1;
+	}
 }
 
 
@@ -342,6 +464,7 @@ void decrease_hours(void) {
 /* '+' button -> PC0
  * '-' button -> PC1
  */
+#ifdef DEMO
 void EXTI0_1_IRQHandler(void) {
 	/* '+' Button */
 	if(EXTI->PR & EXTI_PR_PR0) {
@@ -400,30 +523,13 @@ void EXTI0_1_IRQHandler(void) {
 			indication_light_status = Flashing;
 		}
 	}
-
 	EXTI->PR |= (EXTI_PR_PR0 | EXTI_PR_PR1);
 }
+#endif
 
 void EXTI2_3_IRQHandler(void) {
-#ifdef	CONFIG_SWITCH
-	/* Config Switch -> PC2 */
-	if(EXTI->PR & EXTI_PR_PR2) {
-		// if Input is high, set to Config state and falling edge interrupt
-		if(GPIOC->IDR & GPIO_IDR_2) {
-			toggle_error_led();
-			system_state = Config;	// hardware takes priority over software in this state change
-			EXTI->RTSR &= ~EXTI_RTSR_TR2;	// disable rising trigger
-			EXTI->FTSR |= EXTI_FTSR_TR2; 	// enable falling trigger
-		}
-		else if(GPIOC->IDR & ~GPIO_IDR_2) {
-			toggle_error_led();
-			system_state = Clock;  			// hardware takes priority over software in thise state change
-			EXTI->RTSR |= EXTI_RTSR_TR2;	// enable rising trigger
-			EXTI->FTSR &= ~EXTI_FTSR_TR2; 	// disable falling trigger
-		}
-		EXTI->PR |= EXTI_PR_PR2;
-	}
-#endif
+	//	TEMPERATURE_BUTTON	3	// PB3
+
 	/* Temperature button was pressed */
 	if(EXTI->PR & EXTI_PR_PR3) {
 		if(GPIOB->IDR & GPIO_IDR_2) {
@@ -441,6 +547,14 @@ void EXTI2_3_IRQHandler(void) {
 }
 
 void EXTI4_15_IRQHandler(void) {
+#ifdef DEMO
+	//	ON_OFF_SWITCH		13	// PC13 - WKUP2
+	//	PLUS_BUTTON_PIN		0	// PC0
+	//	MINUS_BUTTON_PIN	1	// PC1
+	//	DATE_BUTTON			4	// PB4
+	//	HC10_STATUS			8	// PA8 (EXTI-9)
+
+
 	/* Date button was pressed */
 	if(EXTI->PR & EXTI_PR_PR4) {
 		if(GPIOB->IDR & GPIO_IDR_4) {
@@ -452,6 +566,86 @@ void EXTI4_15_IRQHandler(void) {
 			xTimerStartFromISR( five_sec_timer, &xHigherPriorityTaskWoken );
 		}
 		EXTI->PR |= EXTI_PR_PR4;
+	}
+
+#else
+	//	ON_OFF_SWITCH		13	// PC13 - WKUP2
+	//	PLUS_BUTTON_PIN		7	// PB7
+	// 	MINUS_BUTTON_PIN	8	// PB8
+	//	DATE_BUTTON			12	// PB12
+	//	HC10_STATUS			8	// PA8 (EXTI-9)
+
+	/* '+' Button */
+	if(EXTI->PR & EXTI_PR_PR7) {
+		if(GPIOC->IDR & GPIO_IDR_0) {
+			plus_button_status = Pressed;
+			EXTI->RTSR &= ~EXTI_RTSR_TR0;	// disable rising trigger
+			EXTI->FTSR |= EXTI_FTSR_TR0; 	// enable falling trigger
+			if(system_state == Config) {
+				/* disable 10s timer, increase minutes place */
+				/*+1 for every <3s hold, +5 for every >3s & <8s hold, +1hr every >8s hold */
+				BaseType_t xHigherPriorityTaskWoken = pdFALSE;
+				xTimerStop(ten_sec_timer, pdMS_TO_TICKS(500));	// stop timer, waiting max 500ms to execute
+				holds = 0;
+				change_speed = Slow;
+				xTimerStartFromISR(button_timer, &xHigherPriorityTaskWoken);
+			}
+		}
+		else if(!(GPIOC->IDR & GPIO_IDR_0)) {
+			plus_button_status = Open;
+			EXTI->FTSR &= ~EXTI_FTSR_TR0; 	// disable falling trigger
+			EXTI->RTSR |= EXTI_RTSR_TR0;	// enable rising trigger
+			if(system_state == Config) {
+				// start/restart 10s timer
+				BaseType_t xHigherPriorityTaskWoken = pdFALSE;
+				xTimerStartFromISR(ten_sec_timer, &xHigherPriorityTaskWoken);
+			}
+		}
+		EXTI->PR |= EXTI_PR_PR7;		// clear flag
+		toggle_error_led();
+	}
+
+	/* '-' Button */
+	if(EXTI->PR & EXTI_PR_PR8) {
+		if(GPIOC->IDR & GPIO_IDR_1) {
+			minus_button_status = Pressed;
+			EXTI->RTSR &= ~EXTI_RTSR_TR1;	// disable rising trigger
+			EXTI->FTSR |= EXTI_FTSR_TR1; 	// enable falling trigger
+		}
+		else if(!(GPIOC->IDR & GPIO_IDR_1)) {
+			minus_button_status = Open;
+			EXTI->FTSR &= ~EXTI_FTSR_TR1; 	// disable falling trigger
+			EXTI->RTSR |= EXTI_RTSR_TR1;	// enable rising trigger
+		}
+		EXTI->PR |= EXTI_PR_PR8;
+		toggle_error_led();
+	}
+
+	/* if both buttons are pressed start timer/counter */
+	if((plus_button_status == Pressed) && (minus_button_status == Pressed)) {
+		if(system_state != Config) {
+			BaseType_t xHigherPriorityTaskWoken = pdFALSE;
+			xTimerStartFromISR(three_sec_timer, &xHigherPriorityTaskWoken);
+		}
+		else if(system_state == Config) {
+			system_state = Clock;
+			indication_light_status = Flashing;
+		}
+	}
+
+#endif
+
+	/* EFUSE Fault Occurred */
+	if(EXTI->PR & EXTI_PR_PR6) {
+		efuse_status = Efuse_Error;
+		error_light_status = Flashing;
+		EXTI->PR |= EXTI_PR_PR6;
+	}
+
+	/* HC-10 Status change */
+	if(EXTI->PR & EXTI_PR_PR9) {
+		get_hc_10_status();
+		EXTI->PR |= EXTI_PR_PR9;
 	}
 
 	/* on/off switch */
