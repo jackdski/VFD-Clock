@@ -33,12 +33,12 @@ extern HC_10_Status_E ble_status;
 /*	U A R T   F U N C T I O N S   */
 void init_usart(void) {
 	/* disable USART */
-	USART1->CR1 &=  ~USART_CR1_UE;	// disable USART
+	USART1->CR1 &=  ~(USART_CR1_UE);	// disable USART
 
 	/* configure GPIO */
 	/* select alternate function mode */
 	GPIOA->MODER = (GPIOA->MODER & ~(GPIO_MODER_MODER9 | GPIO_MODER_MODER10))
-			| (GPIO_MODER_MODER9_1 | GPIO_MODER_MODER10_1);
+				   | (GPIO_MODER_MODER9_1 | GPIO_MODER_MODER10_1);
 
 	// select AF1 on PA9 and PA10
 	GPIOA->AFR[1] |=  ((0x01 << GPIO_AFRH_AFRH1_Pos)
@@ -55,7 +55,7 @@ void init_usart(void) {
 					| (USART_CR1_M & 0) 	// 8-bit character length
 					| USART_CR1_PS);		// odd parity
 
-	USART1->CR1 &= ~( USART_CR1_OVER8);		// oversample 16
+	USART1->CR1 &= ~(USART_CR1_OVER8);		// oversample
 
 
 	/* Control Register 2 */
@@ -89,7 +89,11 @@ void init_usart(void) {
 	NVIC_EnableIRQ(USART1_IRQn);
 	NVIC_SetPriority(USART1_IRQn, 2);
 
+	wake_up_hc_10();	// make sure HC-10 BLE module is awake
+
 #ifdef HC10_STATUS
+	set_hc_10_status_pin();		// set the HC-10 status pin to PIO11
+
 	/* make sure GPIOA is enabled */
 	RCC->AHBENR |= RCC_AHBENR_GPIOAEN;
 

@@ -43,6 +43,8 @@ TaskHandle_t thConfig = NULL;
 TaskHandle_t thBrightness_Adj = NULL;
 TaskHandle_t thAutoBrightAdj = NULL;
 TaskHandle_t thErrorLED = NULL;
+TaskHandle_t thBLErx = NULL;
+TaskHandle_t thBLEtx = NULL;
 
 /* S O F T W A R E   T I M E R S   */
 TimerHandle_t three_sec_timer = NULL;
@@ -133,8 +135,8 @@ int main(void) {
 	/* Priority 3 Tasks */
 	BaseType_t tempReturned = xTaskCreate( prvTemperature_Task, "TempSensor", configMINIMAL_STACK_SIZE, NULL, 3, NULL);
 	BaseType_t Lightreturned = xTaskCreate( prvLight_Task, "LightSensor", configMINIMAL_STACK_SIZE, (void *)NULL, 3, &thAutoBrightAdj);
-	BaseType_t BLERXreturned = xTaskCreate( prvBLE_Receive_Task, "BLE RX", 300, (void *)NULL, 3, NULL);
-	BaseType_t BLETXreturned = xTaskCreate( prvBLE_Send_Task, "BLE TX", 300, (void *)NULL, 3, NULL);
+	BaseType_t BLERXreturned = xTaskCreate( prvBLE_Receive_Task, "BLE RX", 300, (void *)NULL, 3, thBLErx);
+	BaseType_t BLETXreturned = xTaskCreate( prvBLE_Send_Task, "BLE TX", 300, (void *)NULL, 3, thBLEtx);
 
 	/* Priority 2 Tasks */
 
@@ -172,6 +174,11 @@ int main(void) {
 
     change_rtc_time(hours, minutes, seconds, PM);	// init to 12:00:00pm
     change_rtc_date(7, 27);							// init to 7/27
+
+    get_hc_10_status();
+    if( ble_status != Connected ) {
+    	vTaskSuspend(thBLEtx);
+    }
 
     /* start scheduler */
     vTaskStartScheduler();

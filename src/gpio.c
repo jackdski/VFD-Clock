@@ -22,6 +22,8 @@
 /*	T A S K   H A N D L E S   */
 extern TaskHandle_t thRTC;
 extern TaskHandle_t thOff;
+extern TaskHandle_t thBLErx;
+extern TaskHandle_t thBLEtx;
 
 /*	G L O B A L   V A R I A B L E S   */
 extern System_State_E system_state;
@@ -49,7 +51,7 @@ extern uint8_t holds;
 
 //#define		EFUSE_CURRENT_SENSE
 
-#define 	DEMO
+//#define 	DEMO
 
 /*	L E D   D E F I N E S   */
 #ifdef		DEMO
@@ -353,16 +355,25 @@ uint8_t inline read_power_switch(void) {
 }
 
 /* 	Low = Unconnected output
-* 	High = Connected output */
+* 	High = Connected output
+* 	Suspends or resumes TX task based on ble_status */
 void get_hc_10_status(void) {
 	if(GPIOA->IDR & GPIO_IDR_8) {	// connected
 		ble_status = Connected;
-	}
-	else if(!(GPIOA->IDR & GPIO_IDR_8)) {
-		ble_status = Disconnected;
+		vTaskResume(thBLEtx);
 	}
 	else {
-		ble_status = BLE_Error;
+		if(!(GPIOA->IDR & GPIO_IDR_8)) {
+			ble_status = Disconnected;
+			}
+		else {
+			ble_status = BLE_Error;
+		}
+
+		// suspend task if not already suspended
+		if(eTaskGetState(thBLEtx) != eSuspended) {
+			vTaskSuspend(thBLEtx);
+		}
 	}
 }
 

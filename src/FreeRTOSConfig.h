@@ -92,6 +92,7 @@ header file. */
 #define INCLUDE_xTaskGetHandle                  0
 #define INCLUDE_xTaskResumeFromISR              1
 #define INCLUDE_xSemaphoreGetMutexHolder		0
+#define INCLUDE_eTaskGetState					1
 
 
 /* A header file that defines trace macro can be included here. */

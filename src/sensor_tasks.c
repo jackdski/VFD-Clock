@@ -48,6 +48,8 @@ extern TaskHandle_t thConfig;
 extern TaskHandle_t thBrightness_Adj;
 extern TaskHandle_t thAutoBrightAdj;
 extern TaskHandle_t thOff;
+extern TaskHandle_t thBLErx;
+extern TaskHandle_t thBLEtx;
 
 /*	G L O B A L   V A R I A B L E S   */
 extern System_State_E system_state;
@@ -199,7 +201,7 @@ void prvBLE_Send_Task(void *pvParameters) {
 
 /* if there is a BLE connection, then this task will read the BLE RX message queue if it is not empty */
 void prvBLE_Receive_Task(void *pvParameters) {
-	static TickType_t delay_time = pdMS_TO_TICKS( 1000 );  // 500ms
+	static TickType_t delay_time = pdMS_TO_TICKS( 1000 );  // 1ms
 
 	/* strings to be sent */
 	static uint8_t temp_msg[] = "TEMP";
@@ -217,7 +219,10 @@ void prvBLE_Receive_Task(void *pvParameters) {
 	static uint8_t baud_one[] = "OK+Set:9600";
 
 	for( ;; ) {
-		if(RX_Buffer->num_items > 0) {
+	    get_hc_10_status();
+
+	    /* if there is a message, format it */
+	    if(RX_Buffer->num_items > 0) {
 			size_t n = RX_Buffer->num_items;
 			size_t i;
 			uint8_t xRXMessage[n+1];
@@ -231,7 +236,7 @@ void prvBLE_Receive_Task(void *pvParameters) {
 				xRXMessage[i] = toupper(xRXMessage[i]);
 			}
 
-			/* decide what to do with the received message */
+			/* if connected, determine see what to do with the rx'd message */
 			if(ble_status == Connected) {
 				// "TEMP"
 				if(strcmp((const char *)xRXMessage, (const char *)temp_msg) == 0) {
@@ -347,7 +352,7 @@ void prvBLE_Receive_Task(void *pvParameters) {
 						update_time(hours, minutes, seconds);
 					}
 				}
-				//  "TURNOFF"
+				// "TURNOFF"
 				else if(strcmp((const char *)xRXMessage, (const char *)turnoff_msg) == 0) {
 					uint8_t * msg = "Remote Turn Off not available\0";
 					load_str_to_CircBuf(TX_Buffer, msg, 30);
@@ -356,8 +361,11 @@ void prvBLE_Receive_Task(void *pvParameters) {
 					// send "MSGFAIL" back since an incorrect message was received
 					uart_send_msgfail();
 				}
+				reset_CircBuf(RX_Buffer);
 			}
-			/* check if it is a response to an HC-10 command */
+			/* check if it is a response to an HC-10 command
+			 * status will not be Connected since the device will either be
+			 *   waking up or going to sleep */
 			else if(ble_status != Connected) {
 				if(strcmp((const char *)xRXMessage, (const char *)wake_up_msg) == 0) {
 					get_hc_10_status();
@@ -370,14 +378,13 @@ void prvBLE_Receive_Task(void *pvParameters) {
 					error_light_status = Flashing;
 				}
 			}
-			reset_CircBuf(RX_Buffer);
-		}
+	    }
 		vTaskDelay(delay_time);
 	}
 }
 
 void prvTurnOffTask(void *pvParameters) {
-	/* this task will effectively reset the device when it is turned back on.
+	/* This task will effectively reset the device when it is turned back on.
 	 *  This mode "stops all the clocks in the core supply domain and disables
 	 *  the PLL and the HSI, HSI48, HSI14 and HSE oscillators" and "SRAM and
 	 *  register contents are lost except for registers in the RTC domain and
@@ -387,8 +394,8 @@ void prvTurnOffTask(void *pvParameters) {
 		thread_notification = ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
 		if(thread_notification != 0) {
 			configure_for_deepsleep();
-			GPIOA->ODR |= GPIO_ODR_5;		// to see if the outputs are held
-			__WFI();	// enter DeepSleep/Standby Mode
+			GPIOA->ODR |= GPIO_ODR_5;	// to see if the outputs are held
+			__WFI();					// enter DeepSleep/Standby Mode
 		}
 	}
 }

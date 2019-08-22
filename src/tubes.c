@@ -28,7 +28,7 @@ extern int8_t temperature;		/* -128 - 127 */
 /*	D E F I N E S   */
 //#define	TUBE_TESTING		// only outputs 0xAA on tubes
 #define DISPLAY_BINARY	1		// display BCD values instead of VFD-Tube mapped
-#define DEMO
+//#define DEMO
 
 
 /* Binary values that will display the corresponding
@@ -50,10 +50,10 @@ extern int8_t temperature;		/* -128 - 127 */
 #define ALL_TUBES	7
 
 /* pinout */
-#define NOE			4	// PWM on Pin PA4
-#define NSRCLR		11	// PA11
-#define SRCLK		9	// PC9
-#define RCLK		8	// PC8
+//#define NOE			4	// PWM on Pin PA4
+//#define NSRCLR		11	// PA11
+//#define SRCLK		9	// PC9
+//#define RCLK		8	// PC8
 
 #ifdef DEMO
 #define NOE			4	// PWM on Pin PA4
@@ -158,7 +158,7 @@ void srclr_latch_high(void) {
 #ifdef DEMO
 	GPIOA->ODR |= (1 << NSRCLR);
 #else
-	GPIOA->ODR |= (GPIOA_ODR_7);
+	GPIOA->ODR |= (GPIO_ODR_7);
 #endif
 }
 
@@ -167,7 +167,7 @@ void srclr_latch_low(void) {
 #ifdef DEMO
 	GPIOA->ODR &= ~(1 << NSRCLR);
 #else
-	GPIOA->ODR &= ~(GPIOA_ODR_7);
+	GPIOA->ODR &= ~(GPIO_ODR_7);
 #endif
 }
 
