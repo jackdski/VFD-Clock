@@ -20,7 +20,6 @@
 #include "pwm.h"
 #include "adc.h"
 #include "rtc.h"
-#include "tsc.h"
 #include "callbacks.h"
 #include "low_power.h"
 
@@ -135,8 +134,8 @@ int main(void) {
 	/* Priority 3 Tasks */
 	BaseType_t tempReturned = xTaskCreate( prvTemperature_Task, "TempSensor", configMINIMAL_STACK_SIZE, NULL, 3, NULL);
 	BaseType_t Lightreturned = xTaskCreate( prvLight_Task, "LightSensor", configMINIMAL_STACK_SIZE, (void *)NULL, 3, &thAutoBrightAdj);
-	BaseType_t BLERXreturned = xTaskCreate( prvBLE_Receive_Task, "BLE RX", 300, (void *)NULL, 3, thBLErx);
-	BaseType_t BLETXreturned = xTaskCreate( prvBLE_Send_Task, "BLE TX", 300, (void *)NULL, 3, thBLEtx);
+	BaseType_t BLERXreturned = xTaskCreate( prvBLE_Receive_Task, "BLE RX", 300, (void *)NULL, 3, &thBLErx);
+	BaseType_t BLETXreturned = xTaskCreate( prvBLE_Send_Task, "BLE TX", 300, (void *)NULL, 3, &thBLEtx);
 
 	/* Priority 2 Tasks */
 

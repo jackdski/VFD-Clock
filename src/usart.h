@@ -26,6 +26,8 @@ void set_hc_10_baud_rate(uint32_t baud);
 
 void request_hc_10_baud_rate(void);
 
+void set_hc_10_status_pin(void);
+
 void wake_up_hc_10(void);
 
 void set_sleep_mode_hc_10(void);

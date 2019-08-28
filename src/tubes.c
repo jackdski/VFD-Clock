@@ -69,7 +69,7 @@ extern int8_t temperature;		/* -128 - 127 */
 #define SERIAL6		12	// PB12
 #else
 #define NOE			4	// PWM on Pin PA4
-#define NSRCLR		7	// PA7
+#define NSRCLR		7	// PA7 - Latch
 #define SRCLK		6	// PA6
 #define RCLK		4	// PC4
 
