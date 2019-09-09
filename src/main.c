@@ -85,9 +85,7 @@ int main(void) {
     /* check on/off switch position before initializing and starting scheduler,
      * should only happen the first time the device is powered up */
     if((GPIOC->IDR & (1 << 13)) == 13) {
-		GPIOA->ODR |= GPIO_ODR_5;
 		configure_for_deepsleep();
-		GPIOA->ODR &= ~GPIO_ODR_5;
 		__WFI();  // enter DeepSleep/Standby Mode
     }
 
@@ -97,10 +95,7 @@ int main(void) {
 	RCC->APB1ENR |= RCC_APB1ENR_PWREN;
 
     if(PWR->CSR & PWR_CSR_WUF) {
-		RCC->AHBENR |= RCC_AHBENR_GPIOAEN;
-    	GPIOA->ODR &= ~(GPIO_ODR_5);
-    	GPIOA->MODER |= (GPIO_MODER_MODER5_0);
-    	GPIOA->OTYPER &= ~(GPIO_OTYPER_OT_5);
+    	init_indication_led();
     	hours = read_rtc_hours();
     	minutes = read_rtc_minutes();
     	seconds = read_rtc_seconds();
@@ -115,34 +110,31 @@ int main(void) {
 	/* initialize peripherals */
 	init_sysclock();
 	init_rtc();
-	init_led();
+	init_error_led();
+	init_indication_led();
 	init_buttons();
-	init_i2c();
+//	init_i2c();
 	init_usart();
 	configure_shift_pins();
 	init_pwm();
 	init_adc();
 	wake_up_hc_10();
 
-    /* Priority 5 Tasks */
-	BaseType_t rtcReturned = xTaskCreate(prvRTC_Task, "RTC", configMINIMAL_STACK_SIZE, NULL, 5, &thRTC);
-	BaseType_t sleepReturned = xTaskCreate(prvTurnOffTask, "Turn Off", configMINIMAL_STACK_SIZE, NULL, 5, &thOff);
-    BaseType_t configReturned = xTaskCreate(prvConfig_Task, "Config", configMINIMAL_STACK_SIZE, NULL, 5, &thConfig);
-
-    /* Priority 4 Tasks */
-
-	/* Priority 3 Tasks */
-	BaseType_t tempReturned = xTaskCreate( prvTemperature_Task, "TempSensor", configMINIMAL_STACK_SIZE, NULL, 3, NULL);
-	BaseType_t Lightreturned = xTaskCreate( prvLight_Task, "LightSensor", configMINIMAL_STACK_SIZE, (void *)NULL, 3, &thAutoBrightAdj);
-	BaseType_t BLERXreturned = xTaskCreate( prvBLE_Receive_Task, "BLE RX", 300, (void *)NULL, 3, &thBLErx);
-	BaseType_t BLETXreturned = xTaskCreate( prvBLE_Send_Task, "BLE TX", 300, (void *)NULL, 3, &thBLEtx);
+    /* Priority 3 Tasks */
+	BaseType_t rtcReturned = xTaskCreate(prvRTC_Task, "RTC", configMINIMAL_STACK_SIZE, NULL, 3, &thRTC);
+	BaseType_t sleepReturned = xTaskCreate(prvTurnOffTask, "Turn Off", configMINIMAL_STACK_SIZE, NULL, 3, &thOff);
+    BaseType_t configReturned = xTaskCreate(prvConfig_Task, "Config", configMINIMAL_STACK_SIZE, NULL, 3, &thConfig);
 
 	/* Priority 2 Tasks */
+//	BaseType_t tempReturned = xTaskCreate( prvTemperature_Task, "TempSensor", configMINIMAL_STACK_SIZE, NULL, 2, NULL);
+	BaseType_t Lightreturned = xTaskCreate( prvLight_Task, "LightSensor", configMINIMAL_STACK_SIZE, (void *)NULL, 2, &thAutoBrightAdj);
+	BaseType_t BLERXreturned = xTaskCreate( prvBLE_Receive_Task, "BLE RX", 300, (void *)NULL, 2, &thBLErx);
+	BaseType_t BLETXreturned = xTaskCreate( prvBLE_Send_Task, "BLE TX", 300, (void *)NULL, 2, &thBLEtx);
 
 	/* Priority 1 Tasks*/
 	BaseType_t brightnessReturned = xTaskCreate( prvChange_Brightness_Task, "BrightnessAdj", configMINIMAL_STACK_SIZE, (void *)NULL, 1, &thBrightness_Adj);
 	BaseType_t errorLightReturned = xTaskCreate( prvError_LED, "ErrorLED", configMINIMAL_STACK_SIZE, (void *)NULL, 1, NULL);
-	BaseType_t blinkyReturned = xTaskCreate( prvBlink_LED, "Blinky", configMINIMAL_STACK_SIZE, (void *)NULL, 1, &thErrorLED);
+	BaseType_t blinkyReturned = xTaskCreate( prvIndication_LED, "Blinky", configMINIMAL_STACK_SIZE, (void *)NULL, 1, &thErrorLED);
 
 	/* Suspended Tasks */
     vTaskSuspend( thBrightness_Adj );	/* suspend the brightness adjustment task so it is only altered by prvLight_Task */
@@ -152,7 +144,7 @@ int main(void) {
 	configASSERT(rtcReturned == pdPASS);
 	configASSERT(sleepReturned == pdPASS);
 	configASSERT(configReturned = pdPASS);
-	configASSERT(tempReturned == pdPASS);
+//	configASSERT(tempReturned == pdPASS);
 	configASSERT(BLERXreturned == pdPASS);
 	configASSERT(BLETXreturned == pdPASS);
 	configASSERT(Lightreturned == pdPASS);
@@ -169,7 +161,7 @@ int main(void) {
     /* initialize SysTick timer to 10ms ticks */
     SysTick_Config(60000);
 
-    // size_t free_heap_size = xPortGetFreeHeapSize();		// used to debugging how big the heap needs to be
+    // size_t free_heap_size = xPortGetFreeHeapSize();		// used to debug how big the heap needs to be
 
     change_rtc_time(hours, minutes, seconds, PM);	// init to 12:00:00pm
     change_rtc_date(7, 27);							// init to 7/27
@@ -211,7 +203,7 @@ void vPreSleepProcessing( uint32_t ulExpectedIdleTime ) {
 
 }
 
-void vApplicationTickHook( void) {
+void vApplicationTickHook( void ) {
 //    for( ;; );
 }
 

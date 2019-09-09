@@ -88,7 +88,7 @@ void prvRTC_Task(void *pvParameters) {
 	for( ;; ) {
 		thread_notification = ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
 		if(thread_notification != 0) {
-			toggle_rtc_led();
+//			toggle_rtc_led();
 			hours = read_rtc_hours();
 			minutes = read_rtc_minutes();
 			seconds = read_rtc_seconds();
@@ -383,18 +383,17 @@ void prvBLE_Receive_Task(void *pvParameters) {
 	}
 }
 
+/* This task will effectively reset the device when it is turned back on.
+ *  This mode "stops all the clocks in the core supply domain and disables
+ *  the PLL and the HSI, HSI48, HSI14 and HSE oscillators" and "SRAM and
+ *  register contents are lost except for registers in the RTC domain and
+ *  Standby circuitry". */
 void prvTurnOffTask(void *pvParameters) {
-	/* This task will effectively reset the device when it is turned back on.
-	 *  This mode "stops all the clocks in the core supply domain and disables
-	 *  the PLL and the HSI, HSI48, HSI14 and HSE oscillators" and "SRAM and
-	 *  register contents are lost except for registers in the RTC domain and
-	 *  Standby circuitry". */
 	static uint32_t thread_notification;
 	for( ;; ) {
 		thread_notification = ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
 		if(thread_notification != 0) {
 			configure_for_deepsleep();
-			GPIOA->ODR |= GPIO_ODR_5;	// to see if the outputs are held
 			__WFI();					// enter DeepSleep/Standby Mode
 		}
 	}

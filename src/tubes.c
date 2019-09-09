@@ -27,7 +27,7 @@ extern int8_t temperature;		/* -128 - 127 */
 
 /*	D E F I N E S   */
 //#define	TUBE_TESTING		// only outputs 0xAA on tubes
-#define DISPLAY_BINARY	1		// display BCD values instead of VFD-Tube mapped
+//#define DISPLAY_BINARY	1		// display BCD values instead of VFD-Tube mapped
 //#define DEMO
 
 
@@ -130,8 +130,6 @@ void configure_shift_pins() {
 			| GPIO_OSPEEDR_OSPEEDR6_0 | GPIO_OSPEEDR_OSPEEDR7_0);
 	GPIOB->OSPEEDR |= (GPIO_OSPEEDR_OSPEEDR2_0 | GPIO_OSPEEDR_OSPEEDR10_0 | GPIO_OSPEEDR_OSPEEDR11_0);
 	GPIOC->OSPEEDR |= (GPIO_OSPEEDR_OSPEEDR4_0 | GPIO_OSPEEDR_OSPEEDR5_0);
-
-
 #endif
 }
 
@@ -233,12 +231,12 @@ void assign_pin(uint8_t tube, uint8_t val) {
 			case 5: GPIOB->ODR |= (1 << SERIAL5); break;
 			case 6: GPIOB->ODR |= (1 << SERIAL6); break;
 #else
-			case 1: GPIOA->ODR &= ~(1 << SERIAL1); break;
-			case 2: GPIOA->ODR &= ~(1 << SERIAL2); break;
-			case 3: GPIOC->ODR &= ~(1 << SERIAL3); break;
-			case 4: GPIOB->ODR &= ~(1 << SERIAL4); break;
-			case 5: GPIOB->ODR &= ~(1 << SERIAL5); break;
-			case 6: GPIOB->ODR &= ~(1 << SERIAL6); break;
+			case 1: GPIOA->ODR |= (1 << SERIAL1); break;
+			case 2: GPIOA->ODR |= (1 << SERIAL2); break;
+			case 3: GPIOC->ODR |= (1 << SERIAL3); break;
+			case 4: GPIOB->ODR |= (1 << SERIAL4); break;
+			case 5: GPIOB->ODR |= (1 << SERIAL5); break;
+			case 6: GPIOB->ODR |= (1 << SERIAL6); break;
 #endif
 		}
     }

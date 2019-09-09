@@ -55,13 +55,13 @@ extern uint8_t holds;
 
 /*	L E D   D E F I N E S   */
 #ifdef		DEMO
+#define		ERROR_LED			0	// PA0
+#define		INDICATION_LED		5	// PA5
+#else
 #define		ERROR_LED			9	// PC9
 #define		INDICATON_LED		8	// PC8
-#else
-#define		ERROR_LED			0	// PA0
-#define		RTC_LED				1	// PA1
-#define		INDICATOR_LED		5	// PA5
 #endif
+
 
 /*	B U T T O N  &  S W I T C H E S   D E F I N E S   */
 #ifdef		DEMO
@@ -88,39 +88,42 @@ extern uint8_t holds;
 /*	I N I T S   */
 
 /* ERROR LED
- * RTC LED
- * Indicator LED
+ * 	Demo - PA0
+ * 	Else - PC9
  * General Purpose LED
  */
-void init_led(void) {
+void init_error_led(void) {
 #ifdef DEMO
-	RCC->AHBENR |= RCC_AHBENR_GPIOAEN;
-	GPIOA->ODR &= ~(GPIO_ODR_0 | GPIO_ODR_1 | GPIO_ODR_5 | GPIO_ODR_6);	// init LOW
-
-	/* set to output */
-	GPIOA->MODER |= 	( GPIO_MODER_MODER0_0
-						| GPIO_MODER_MODER1_0
-						| GPIO_MODER_MODER5_0
-					/*	| GPIO_MODER_MODER6_0 */ );
-
-	/* set to push-pull */
-	GPIOA->OTYPER &=   ~( GPIO_OTYPER_OT_0
-						| GPIO_OTYPER_OT_1
-						| GPIO_OTYPER_OT_5
-						/* | GPIO_OTYPER_OT_6 */ );
+	RCC->AHBENR |= RCC_AHBENR_GPIOAEN;			/* enable peripheral clock */
+	GPIOA->ODR &= ~(GPIO_ODR_0);				/* init LOW */
+	GPIOA->MODER |= GPIO_MODER_MODER0_0;		/* set to output */
+	GPIOA->OTYPER &=   ~(GPIO_OTYPER_OT_0);  	/* set to push-pull */
 #else
-	RCC->AHBENR |= RCC_AHBENR_GPIOCEN;
-	GPIOA->ODR &= ~(GPIO_ODR_8 | GPIO_ODR_9);  // init LOW
-
-	/* set to output */
-	GPIOC->MODER |= 	( GPIO_MODER_MODER8_0
-						| GPIO_MODER_MODER9_0);
-
-	/* set to push-pull */
-	GPIOA->OTYPER &=   ~( GPIO_OTYPER_OT_8
-						| GPIO_OTYPER_OT_9);
+	RCC->AHBENR |= RCC_AHBENR_GPIOCEN;			/* enable peripheral clock */
+	GPIOC->ODR &= ~(GPIO_ODR_9);				/* init LOW */
+	GPIOC->MODER |= GPIO_MODER_MODER9_0;		/* set to output */
+	GPIOC->OTYPER &= ~(GPIO_OTYPER_OT_9);		/* set to push-pull */
 #endif
 }
+
+/* Indicator LED
+ * 	Demo - PA5
+ * 	Else - PC8
+ */
+void init_indication_led(void) {
+#ifdef DEMO
+	RCC->AHBENR |= RCC_AHBENR_GPIOAEN;			/* enable peripheral clock */
+	GPIOA->ODR &= ~(GPIO_ODR_5);  				/* init LOW */
+	GPIOA->MODER |= (GPIO_MODER_MODER5_0);		/* set to output */
+	GPIOA->OTYPER &= ~(GPIO_OTYPER_OT_5);		/* set to push-pull */
+#else
+	RCC->AHBENR |= RCC_AHBENR_GPIOCEN;			/* enable peripheral clock */
+	GPIOC->ODR &= ~(GPIO_ODR_8);				/* init LOW */
+	GPIOC->MODER |= GPIO_MODER_MODER8_0;		/* set to output */
+	GPIOC->OTYPER &= ~(GPIO_OTYPER_OT_8);		/* set to push-pull */
+#endif
+}
+
 
 void init_power_switch(void) {
 	RCC->AHBENR |= RCC_AHBENR_GPIOCEN;
@@ -323,18 +326,35 @@ void configure_gpio_for_low_power(void) {
 
 /*	O U T P U T S   */
 
-/* toggle the outputs on PA5 and PA6 */
-void inline toggle_led(void) {
+/* toggle the output on the INDICATION LED */
+void inline toggle_indication_led(void) {
+#ifdef DEMO
 	GPIOA->ODR ^= GPIO_ODR_5;
+#else
+	GPIOC->ODR ^= GPIO_ODR_8;
+#endif
 }
 
+/* toggle the outputs on the ERROR LED */
 void inline toggle_error_led(void) {
+#ifdef DEMO
 	GPIOA->ODR ^= GPIO_ODR_0;
+#else
+	GPIOC->ODR ^= GPIO_ODR_9;
+#endif
 }
 
-void inline toggle_rtc_led(void) {
-	GPIOA->ODR ^= GPIO_ODR_1;
+void inline clear_error_led(void) {
+#ifdef DEMO
+	GPIOA->ODR &= ~GPIO_ODR_0;
+#else
+	GPIOC->ODR &= ~GPIO_ODR_9;
+#endif
 }
+
+//void inline toggle_rtc_led(void) {
+//	GPIOA->ODR ^= GPIO_ODR_1;
+//}
 
 
 /*   R E A D S   */
@@ -380,13 +400,13 @@ void get_hc_10_status(void) {
 /*   T A S K S   */
 
 /* Toggles and flashes the Indication LED */
-void prvBlink_LED(void *pvParameters) {
+void prvIndication_LED(void *pvParameters) {
 	const TickType_t delay_time = pdMS_TO_TICKS(100); // 0.1s period
 	const TickType_t delay_time_long = pdMS_TO_TICKS(500); // 0.5s period
 	static uint8_t response_counter = 0;
 	for( ;; ) {
 		if(indication_light_status == Flashing) {
-			toggle_led();
+			toggle_indication_led();
 			response_counter += 1;
 			if(response_counter == 6) {
 				response_counter = 0;
@@ -395,7 +415,7 @@ void prvBlink_LED(void *pvParameters) {
 			vTaskDelay(delay_time);			// 0.25s
 		}
 		else {
-			toggle_led();
+			toggle_indication_led();
 			vTaskDelay(delay_time_long);	// 0.5s
 		}
 	}
@@ -416,6 +436,9 @@ void prvError_LED(void * pvParameters) {
 				toggle_error_led();
 				vTaskDelay(delay_time_ble);
 			}
+		}
+		else {
+			clear_error_led();
 		}
 	}
 }

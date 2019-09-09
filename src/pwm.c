@@ -48,7 +48,8 @@ void init_pwm(void) {
 		enable the output on OC1 (CC1E = 1) */
 	TIM14->CCER |= TIM_CCER_CC1E;
 
-	TIM14->CCER &= ~(TIM_CCER_CC1NP);	// OC1N active high
+//	TIM14->CCER &= ~(TIM_CCER_CC1NP);	// OC1N active high
+	TIM14->CCER |= TIM_CCER_CC1NP;	// OC1N active low
 
 	/* Enable output (MOE = 1)*/
 	TIM14->BDTR |= TIM_BDTR_MOE;
