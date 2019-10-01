@@ -17,7 +17,8 @@
 #include "adc.h"
 
 /*	G L O B A L   V A R I A B L E S   */
-extern uint32_t light_value;
+
+/*	F U N C T I O N S   */
 
 void init_adc(void) {
 #ifdef	DEMO

@@ -62,11 +62,8 @@ extern System_State_E system_state;
 extern uint8_t ampm;
 extern int8_t temperature;	/* -128 - 127 */
 
-extern uint32_t light_value;
 extern uint16_t display_brightness;
 static uint32_t target_brightness;
-extern uint8_t usart_msg;
-extern uint8_t config_timer_callback_count;
 
 extern TimerHandle_t three_sec_timer;
 extern TimerHandle_t five_sec_timer;
@@ -117,6 +114,8 @@ void prvRTC_Task(void *pvParameters) {
 void prvConfig_Task(void *pvParameters) {
 	static TickType_t delay_time = pdMS_TO_TICKS(500);
 	static Light_Flash_E config_display_flashing = Flashing;
+	static config_display_brightness = 75;
+
 	for( ;; ) {
 		uint8_t hours = read_rtc_hours();
 		uint8_t minutes = read_rtc_minutes();
@@ -131,7 +130,7 @@ void prvConfig_Task(void *pvParameters) {
 		/* if currently off, update display and turn it on */
 		if(config_display_flashing == Off) {
 			update_time(hours, minutes, seconds);	/* update tubes */
-			change_pwm_duty_cycle(display_brightness);
+			change_pwm_duty_cycle(config_display_brightness);
 			config_display_flashing = Flashing;
 		}
 
@@ -167,10 +166,11 @@ void prvTemperature_Button_Task(void *pvParameters) {
 	}
 }
 
-/* updates the light_value global variable every 5 seconds
+/* updates the light_value private variable every 5 seconds
  * so that the prvChangePWM task changes the brightness */
 void prvLight_Task(void *pvParameters) {
 	static TickType_t delay_time = pdMS_TO_TICKS( 2000 ); // 5s
+	static uint32_t light_value = 200;
 	static uint32_t light_sample;
 	static uint32_t light_sample_two;
 	for( ;; ) {
@@ -200,6 +200,13 @@ void prvLight_Task(void *pvParameters) {
  * by +/-1% every 50ms and should be configured as a low-priority task */
 void prvChange_Brightness_Task(void *pvParameters) {
 	static TickType_t delay_time = pdMS_TO_TICKS( 50 );		// 50ms
+	static uint16_t display_brightness = STARTING_DISPLAY_BRIGHTNESS;
+
+	/* change display_brightness if parameter was passed into task function */
+	if((uint32_t)pvParameters <= 100) {
+		display_brightness = (uint16_t)(uint32_t)pvParameters;
+	}
+
 	for( ;; ) {
 		display_brightness = (TIM14->CCR1 * 100) / (uint16_t)PWM_FREQUENCY;
 		if(display_brightness == target_brightness) {

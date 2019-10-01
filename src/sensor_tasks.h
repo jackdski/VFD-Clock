@@ -10,6 +10,9 @@
 
 #include "timers.h"
 
+/*	D E F I N E S   */
+#define STARTING_DISPLAY_BRIGHTNESS 	50	// initialize display to 50% brightness
+
 void prvRTC_Task(void *pvParameters);
 
 void prvConfig_Task(void *pvParameters);

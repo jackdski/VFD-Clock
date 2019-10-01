@@ -21,7 +21,6 @@
 #include "gpio.h"
 
 /*	G L O B A L   V A R I A B L E S   */
-extern uint8_t usart_msg;
 extern CircBuf_t * TX_Buffer;
 extern CircBuf_t * RX_Buffer;
 extern HC_10_Status_E ble_status;

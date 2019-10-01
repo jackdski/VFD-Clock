@@ -23,6 +23,9 @@
 #include "callbacks.h"
 #include "low_power.h"
 
+/*	D E F I N E S   */
+#define STARTING_DISPLAY_BRIGHTNESS 	50	// initialize display to 50% brightness
+
 /*	F R E E R T O S   H O O K S   */
 void vApplicationMallocFailedHook( void );
 void vApplicationIdleHook( void );
@@ -49,18 +52,12 @@ TaskHandle_t thTemperatureButton = NULL;
 /* S O F T W A R E   T I M E R S   */
 TimerHandle_t three_sec_timer = NULL;
 TimerHandle_t five_sec_timer = NULL;
-TimerHandle_t ten_sec_timer = NULL;
 TimerHandle_t button_timer = NULL;
 
 /*	G L O B A L   V A R I A B L E S   */
 volatile System_State_E system_state = Clock;
 
 //volatile int8_t temperature = 1;	/* -128 - 127 */
-
-volatile uint32_t light_value = 200;
-volatile uint16_t display_brightness = 50;
-volatile uint8_t usart_msg = 0;
-volatile uint8_t config_timer_callback_count = 0;
 volatile uint8_t holds = 0;
 
 
@@ -128,7 +125,7 @@ int main(void) {
 	BaseType_t TempButtonreturned = xTaskCreate( prvTemperature_Task, "Temp Button", configMINIMAL_STACK_SIZE, (void *)NULL, 2, &thTemperatureButton);
 
 	/* Priority 1 Tasks*/
-	BaseType_t brightnessReturned = xTaskCreate( prvChange_Brightness_Task, "BrightnessAdj", configMINIMAL_STACK_SIZE, (void *)NULL, 1, &thBrightness_Adj);
+	BaseType_t brightnessReturned = xTaskCreate( prvChange_Brightness_Task, "BrightnessAdj", configMINIMAL_STACK_SIZE, (void *)STARTING_DISPLAY_BRIGHTNESS, 1, &thBrightness_Adj);
 	BaseType_t errorLightReturned = xTaskCreate( prvError_LED, "ErrorLED", configMINIMAL_STACK_SIZE, (void *)NULL, 1, NULL);
 	BaseType_t blinkyReturned = xTaskCreate( prvIndication_LED, "Blinky", configMINIMAL_STACK_SIZE, (void *)NULL, 1, &thErrorLED);
 
@@ -151,7 +148,6 @@ int main(void) {
     /* initialize software timers */
     three_sec_timer = xTimerCreate("3s Timer", pdMS_TO_TICKS(100), pdTRUE, 0, three_sec_timer_callback);
 	five_sec_timer = xTimerCreate("5s Timer", pdMS_TO_TICKS(5000), pdFALSE, 0, five_sec_timer_callback);
-    ten_sec_timer = xTimerCreate("10s Timer", pdMS_TO_TICKS(10000), pdFALSE, 0, ten_sec_timer_callback);
     button_timer = xTimerCreate("Button Timer", pdMS_TO_TICKS(50), pdTRUE, 0, button_timer_callback);
 
     /* initialize SysTick timer to 10ms ticks */

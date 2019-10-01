@@ -29,9 +29,6 @@ extern uint8_t hours;		/* 1-12 */
 extern uint8_t minutes;		/* 0-59 */
 extern uint8_t seconds;		/* 0-59 */
 
-extern uint16_t display_brightness;
-extern uint8_t config_timer_callback_count;
-
 extern TimerHandle_t three_sec_timer;
 extern TimerHandle_t five_sec_timer;
 extern TimerHandle_t ten_sec_timer;
@@ -48,6 +45,8 @@ extern Time_Change_Speed_E change_speed;
 /* checks if both +/- buttons are still pressed every 100ms and changes system_state
 *	if 3s is reached */
 void three_sec_timer_callback(TimerHandle_t xTimer) {
+	static uint8_t config_timer_callback_count;
+
 	if(system_state != Config) {
 		// break since buttons weren't pressed long enough
 		if((plus_button_status != Pressed) || (minus_button_status != Pressed)) {
@@ -81,17 +80,6 @@ void five_sec_timer_callback(TimerHandle_t xTimer) {
 	uint8_t seconds = read_rtc_seconds();
 	update_time(hours, minutes, seconds);	// show time on display again
 	vTaskResume(thRTC);
-	indication_light_status = Flashing;
-}
-
-/* call back function for the software timer created to leave Config mode
-*	 without touching the buttons */
-void ten_sec_timer_callback(TimerHandle_t xTimer) {
-	system_state = Clock;
-	// disable 2Hz display flashing and resume normal clock operations
-	vTaskSuspend(thConfig);
-	vTaskResume(thRTC);
-	change_pwm_duty_cycle(display_brightness);
 	indication_light_status = Flashing;
 }
 
