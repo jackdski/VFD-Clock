@@ -53,3 +53,8 @@ Progress:
 	- [x] Sleep mode in Idle Task
 	- [x] Deep Sleep mode (turn off tubes, disable everything except for RTC) when power switch is in off position
 
+
+Todo:
+- [ ] Interrupts
+	- [ ] Convert to atomic operations by disabling and enabling interrupts
+	- [ ] Read interrupt flags before if statements blocks

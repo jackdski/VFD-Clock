@@ -44,6 +44,7 @@ TaskHandle_t thAutoBrightAdj = NULL;
 TaskHandle_t thErrorLED = NULL;
 TaskHandle_t thBLErx = NULL;
 TaskHandle_t thBLEtx = NULL;
+TaskHandle_t thTemperatureButton = NULL;
 
 /* S O F T W A R E   T I M E R S   */
 TimerHandle_t three_sec_timer = NULL;
@@ -54,19 +55,14 @@ TimerHandle_t button_timer = NULL;
 /*	G L O B A L   V A R I A B L E S   */
 volatile System_State_E system_state = Clock;
 
-// initialize time to 12:00:00pm
-volatile uint8_t hours = 12;		/* 1-12*/
-volatile uint8_t minutes = 0;		/* 0-59 */
-volatile uint8_t seconds = 0;		/* 0-59 */
-volatile uint8_t ampm = PM;
-
-volatile int8_t temperature = 1;	/* -128 - 127 */
+//volatile int8_t temperature = 1;	/* -128 - 127 */
 
 volatile uint32_t light_value = 200;
 volatile uint16_t display_brightness = 50;
 volatile uint8_t usart_msg = 0;
 volatile uint8_t config_timer_callback_count = 0;
 volatile uint8_t holds = 0;
+
 
 Button_Status_E plus_button_status = Open;
 Button_Status_E minus_button_status = Open;
@@ -92,15 +88,12 @@ int main(void) {
     /* check if device was set to Standby mode prior to running this code again
      	 if it was, use the time in the RTC registers */
 
-	RCC->APB1ENR |= RCC_APB1ENR_PWREN;
+	RCC->APB1ENR |= RCC_APB1ENR_PWREN;  // enable PWR peripheral clock
 
+	/* device was woken up from Standby mode */
     if(PWR->CSR & PWR_CSR_WUF) {
     	init_indication_led();
-    	hours = read_rtc_hours();
-    	minutes = read_rtc_minutes();
-    	seconds = read_rtc_seconds();
-    	ampm = read_rtc_ampm();
-    	time_config = Use_RTC;
+    	time_config = Standby_Wakeup;
     }
 
 	/* create circular buffers for BLE messages */
@@ -120,8 +113,10 @@ int main(void) {
 	init_adc();
 	wake_up_hc_10();
 
+	/*   C R E A T E   T A S K S   */
+
     /* Priority 3 Tasks */
-	BaseType_t rtcReturned = xTaskCreate(prvRTC_Task, "RTC", configMINIMAL_STACK_SIZE, NULL, 3, &thRTC);
+	BaseType_t rtcReturned = xTaskCreate(prvRTC_Task, "RTC", configMINIMAL_STACK_SIZE, (void *) time_config, 3, &thRTC);
 	BaseType_t sleepReturned = xTaskCreate(prvTurnOffTask, "Turn Off", configMINIMAL_STACK_SIZE, NULL, 3, &thOff);
     BaseType_t configReturned = xTaskCreate(prvConfig_Task, "Config", configMINIMAL_STACK_SIZE, NULL, 3, &thConfig);
 
@@ -130,6 +125,7 @@ int main(void) {
 	BaseType_t Lightreturned = xTaskCreate( prvLight_Task, "LightSensor", configMINIMAL_STACK_SIZE, (void *)NULL, 2, &thAutoBrightAdj);
 	BaseType_t BLERXreturned = xTaskCreate( prvBLE_Receive_Task, "BLE RX", 300, (void *)NULL, 2, &thBLErx);
 	BaseType_t BLETXreturned = xTaskCreate( prvBLE_Send_Task, "BLE TX", 300, (void *)NULL, 2, &thBLEtx);
+	BaseType_t TempButtonreturned = xTaskCreate( prvTemperature_Task, "Temp Button", configMINIMAL_STACK_SIZE, (void *)NULL, 2, &thTemperatureButton);
 
 	/* Priority 1 Tasks*/
 	BaseType_t brightnessReturned = xTaskCreate( prvChange_Brightness_Task, "BrightnessAdj", configMINIMAL_STACK_SIZE, (void *)NULL, 1, &thBrightness_Adj);
@@ -163,9 +159,8 @@ int main(void) {
 
     // size_t free_heap_size = xPortGetFreeHeapSize();		// used to debug how big the heap needs to be
 
-    change_rtc_time(hours, minutes, seconds, PM);	// init to 12:00:00pm
-    change_rtc_date(7, 27);							// init to 7/27
 
+    // check HC-10 status to see if it has already connected to a device
     get_hc_10_status();
     if( ble_status != Connected ) {
     	vTaskSuspend(thBLEtx);

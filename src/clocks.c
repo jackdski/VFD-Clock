@@ -11,6 +11,9 @@
 /*	A P P L I C A T I O N   I N C L U D E S   */
 #include "clocks.h"
 
+/*	G L O B A L   V A R I A B L E S   */
+extern unsigned long ulHighFrequencyTimerTicks;
+
 void init_sysclock(void) {
 	/* Enable HSI48 and HSI14 */
 	RCC->CR2 = 	( RCC_CR2_HSI48ON
@@ -43,9 +46,8 @@ void init_sysclock(void) {
 					| RCC_AHBENR_TSEN);
 
 	RCC->APB1ENR =  ( RCC_APB1ENR_TIM2EN
+					| RCC_APB1ENR_TIM3EN
 					| RCC_APB1ENR_TIM14EN
-//					| RCC_APB1ENR_USART2EN
-//					| RCC_APB1ENR_USART3EN
 					| RCC_APB1ENR_I2C1EN
 					| RCC_APB1ENR_I2C2EN
 					| RCC_APB1ENR_PWREN);
@@ -53,8 +55,6 @@ void init_sysclock(void) {
 	RCC->APB2ENR =  ( RCC_APB2ENR_ADCEN
 					| RCC_APB2ENR_TIM1EN
 					| RCC_APB2ENR_USART1EN
-//					| RCC_APB2ENR_TIM15EN
-//					| RCC_APB2ENR_TIM16EN
 					| RCC_APB2ENR_SYSCFGEN);
 
 //	/* Real-Time Clock */
@@ -70,8 +70,6 @@ void init_sysclock(void) {
 	/* Select clocks sources for peripherals */
 	RCC->CFGR3 = 	( RCC_CFGR3_USART1SW_HSI	// 8MHz
 					| RCC_CFGR3_I2C1SW_HSI);	// 8MHz
-//					| RCC_CFGR3_USART2SW_HSI	// 8MHz
-//					| RCC_CFGR3_USART3SW_HSI);	// 8MHz
 
 	RCC->CIR = 0;  // clear Clock Interrupt Register
 
@@ -82,14 +80,20 @@ void init_sysclock(void) {
 
 void init_timing_stats_timer(void) {
 	/* config TIM14 registers */
-	TIM3->PSC = 799; 	// 8MHz / (799+1) = 10kHz
-	TIM3->ARR = (uint16_t)10000; // 1 second
-	TIM3->CCR1 = (uint16_t)TIM_SR_CC1OF;
-	TIM3->CCER &= ~(TIM_CCER_CC1NP);	// OC1N active high
-	/* Enable output (MOE = 1)*/
-//	TIM3->BDTR |= TIM_BDTR_MOE;
+	TIM3->PSC = 79; 	// 8MHz / (79+1) = 100kHz
+	TIM3->ARR = (uint16_t)100; // 0.001 seconds, 10x faster than SysTick tick
+	TIM3->CCR1 = (uint16_t)100;
 
 	TIM3->CR1 |= TIM_CR1_DIR | TIM_CR1_CEN;	// enable downcounter and counter
+	TIM3->EGR |= TIM_EGR_UG;
+	TIM3->DIER |= TIM_DIER_UIE;
+
+	NVIC_SetPriority(TIM3_IRQn, 0);
+	NVIC_EnableIRQ(TIM3_IRQn);
 }
 
-
+void TIM3_IRQHandler(void) {
+	NVIC_ClearPendingIRQ(TIM3_IRQn);
+	TIM3->SR &= ~(TIM_SR_UIF);
+	ulHighFrequencyTimerTicks++;
+}

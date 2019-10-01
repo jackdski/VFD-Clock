@@ -76,9 +76,9 @@ void three_sec_timer_callback(TimerHandle_t xTimer) {
 void five_sec_timer_callback(TimerHandle_t xTimer) {
 	toggle_error_led();
 	system_state = Clock;
-	hours = read_rtc_hours();
-	minutes = read_rtc_minutes();
-	seconds = read_rtc_seconds();
+	uint8_t hours = read_rtc_hours();
+	uint8_t minutes = read_rtc_minutes();
+	uint8_t seconds = read_rtc_seconds();
 	update_time(hours, minutes, seconds);	// show time on display again
 	vTaskResume(thRTC);
 	indication_light_status = Flashing;

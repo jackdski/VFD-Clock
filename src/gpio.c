@@ -24,6 +24,7 @@ extern TaskHandle_t thRTC;
 extern TaskHandle_t thOff;
 extern TaskHandle_t thBLErx;
 extern TaskHandle_t thBLEtx;
+extern TaskHandle_t thTemperatureButton;
 
 /*	G L O B A L   V A R I A B L E S   */
 extern System_State_E system_state;
@@ -123,7 +124,6 @@ void init_indication_led(void) {
 	GPIOC->OTYPER &= ~(GPIO_OTYPER_OT_8);		/* set to push-pull */
 #endif
 }
-
 
 void init_power_switch(void) {
 	RCC->AHBENR |= RCC_AHBENR_GPIOCEN;
@@ -427,70 +427,26 @@ void prvError_LED(void * pvParameters) {
 	const TickType_t delay_time_efuse = pdMS_TO_TICKS(200);	// 0.2s
 
 	for( ;; ) {
-		if(error_light_status == Flashing) {
-			if(efuse_status == Efuse_Error) {
-				toggle_error_led();
-				vTaskDelay(delay_time_efuse);
-			}
-			else if(ble_status == BLE_Error) {
-				toggle_error_led();
-				vTaskDelay(delay_time_ble);
-			}
-		}
-		else {
-			clear_error_led();
-		}
+		toggle_error_led();
+		vTaskDelay(delay_time_ble);
+//		if(error_light_status == Flashing) {
+//			if(efuse_status == Efuse_Error) {
+//				toggle_error_led();
+//				vTaskDelay(delay_time_efuse);
+//			}
+//			else if(ble_status == BLE_Error) {
+//				toggle_error_led();
+//				vTaskDelay(delay_time_ble);
+//			}
+//		}
+//		else {
+//			clear_error_led();
+//		}
 	}
 }
 
 /*	G E N E R A L   */
-void increase_minutes(uint8_t mins) {
-	minutes += mins;
-	if(minutes >= 60) {
-		minutes -= 60;
-		if(hours == 12) {
-			hours = 1;
-			ampm ^= 1;	// change am/pm
-		}
-		else {
-			hours += 1;
-		}
-	}
-}
 
-void decrease_minutes(uint8_t mins) {
-	minutes -= mins;
-	if(minutes < 0) {
-		minutes += 60;
-		if(hours == 1) {
-			hours = 12;
-			ampm ^= 1;	// change am/pm
-		}
-		else {
-			hours -= 1;
-		}
-	}
-}
-
-void increase_hours(void) {
-	if(hours == 12) {
-		hours = 1;
-		ampm ^= 1;	// change am/pm
-	}
-	else {
-		hours += 1;
-	}
-}
-
-void decrease_hours(void) {
-	if(hours == 1) {
-		hours = 12;
-		ampm ^= 1;	// change am/pm
-	}
-	else {
-		hours -= 1;
-	}
-}
 
 
 /*	I N T E R R U P T S   */
@@ -568,9 +524,10 @@ void EXTI2_3_IRQHandler(void) {
 	if(EXTI->PR & EXTI_PR_PR3) {
 		if(GPIOB->IDR & GPIO_IDR_2) {
 			/* use 5s timer to display the temperature, suspend the RTC update display task */
-			BaseType_t xHigherPriorityTaskWoken = pdFALSE;
 			vTaskSuspend(thRTC);
-			display_temperature(temperature);	// do this in a task
+			BaseType_t xHigherPriorityTaskWoken = pdFALSE;
+			configASSERT(thTemperatureButton != NULL);
+			vTaskNotifyGiveFromISR(thTemperatureButton, &xHigherPriorityTaskWoken );
 			system_state = Button_Temperature;
 			xTimerStartFromISR( five_sec_timer, &xHigherPriorityTaskWoken );
 			portYIELD_FROM_ISR( xHigherPriorityTaskWoken );

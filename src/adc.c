@@ -160,7 +160,6 @@ void set_analog_watchdog_adc(uint8_t channel) {
 	}
 
 	/* (2) Define analog watchdog range : 16b-MSW is the high limit and 16b-LSW is the low limit */
-	// TODO: work on finding the average untouched values
 	ADC1->TR = (0xFF00 << 16) + 0x00FF; /* (2)*/
 
 	/* (3) Enable interrupt on Analog Watchdog */

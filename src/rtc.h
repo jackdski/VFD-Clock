@@ -8,8 +8,8 @@
 #ifndef RTC_H_
 #define RTC_H_
 
-#define PM	1
-#define AM	0
+//#define PM	1
+//#define AM	0
 
 void init_rtc(void);
 
@@ -57,5 +57,14 @@ void change_rtc_day(uint8_t new_day);
 void change_rtc_day_of_week(uint8_t new_dow);
 
 void change_rtc_date(uint8_t month, uint8_t day);
+
+/* Respond to buttons */
+void increase_minutes(uint8_t mins);
+
+void decrease_minutes(uint8_t mins);
+
+void increase_hours(void);
+
+void decrease_hours(void);
 
 #endif /* RTC_H_ */

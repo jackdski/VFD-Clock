@@ -38,7 +38,7 @@ void init_pwm(void) {
 	/* config TIM14 registers */
 	TIM14->PSC = 7; 	// 8MHz / (7+1) = 1MHz
 	TIM14->ARR = (uint16_t)PWM_FREQUENCY; // determines PWM frequency
-	TIM14->CCR1 = (uint16_t)PWM_FREQUENCY / 2; // determines duty cycle, init to 50%
+	TIM14->CCR1 = (uint16_t)CALC_PWM_DUTY_CYCLE(50); // determines duty cycle, init to 50%
 
 	/* Select PWM mode 1 on OC1 (OC1M = 110),
 	 	 enable preload register on OC1 (OC1PE = 1) */
@@ -88,9 +88,9 @@ void inline toggle_display_output(void) {
 /* @param uint16_t duty_cycle: 0%-100% */
 void change_pwm_duty_cycle(uint16_t duty_cycle) {
 	if(duty_cycle > 100)
-		TIM14->CCR1 = ((uint16_t)PWM_FREQUENCY * 100) / 100;
+		TIM14->CCR1 = ((uint16_t)CALC_PWM_DUTY_CYCLE(100));
 	else {
-		uint16_t duty = ((uint16_t)PWM_FREQUENCY * duty_cycle) / 100;
+		uint16_t duty = ((uint16_t)CALC_PWM_DUTY_CYCLE(duty_cycle));
 		TIM14->CCR1 = duty;
 	}
 }

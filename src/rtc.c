@@ -52,10 +52,15 @@ void init_rtc(void) {
 	RTC->CR &= ~(RTC_CR_OSEL); 	// output disabled
 	RTC->CR |= (RTC_CR_BYPSHAD | RTC_CR_ALRAIE);
 
+
 	if(time_config == Reset) {
 		/* initialize time to 12:00:00 pm */
-		RTC->TR |= RTC_TR_PM;  // set to PM
-		RTC->TR = (1 & RTC_TR_HT) | (2 & RTC_TR_HU);
+//		RTC->TR |= RTC_TR_PM;  // set to PM
+//		RTC->TR = (1 & RTC_TR_HT) | (2 & RTC_TR_HU);
+
+	    /* initialize to a default time */
+	    change_rtc_time(12, 0, 0, PM);	// init to 12:00:00pm
+	    change_rtc_date(12, 25);		// init to 12/25
 	}
 
 	/* configure alarm */
@@ -161,23 +166,25 @@ void inline change_rtc_seconds(uint8_t new_seconds) {
 }
 
 void inline change_rtc_ampm(uint8_t new_ampm) {
-	if(new_ampm == 1) // PM
+	if(new_ampm == 1) { // PM
 		RTC->TR |= (RTC_TR_PM);
-	else
+	}
+	else {
 		RTC->TR &= ~(RTC_TR_PM);
+	}
 }
 
-void change_rtc_time(uint8_t hours, uint8_t minutes, uint8_t seconds, uint8_t ampm) {
+void change_rtc_time(uint8_t new_hours, uint8_t new_minutes, uint8_t new_seconds, uint8_t new_ampm) {
 	RTC->WPR = 0xCA;
 	RTC->WPR = 0x53;
 	RTC->ISR |= RTC_ISR_INIT;
 	while ((RTC->ISR & RTC_ISR_INITF) != RTC_ISR_INITF);
 
 	// write new values
-	change_rtc_hours(hours);
-	change_rtc_minutes(minutes);
-	change_rtc_seconds(seconds);
-	change_rtc_ampm(ampm);
+	change_rtc_hours(new_hours);
+	change_rtc_minutes(new_minutes);
+	change_rtc_seconds(new_seconds);
+	change_rtc_ampm(new_ampm);
 
 	RTC->ISR &=~ RTC_ISR_INIT;
 	RTC->WPR = 0xFE;
@@ -231,17 +238,71 @@ void inline change_rtc_day_of_week(uint8_t new_dow) {
 	RTC->DR |= (new_dow & RTC_DR_WDU);
 }
 
-void change_rtc_date(uint8_t month, uint8_t day) {
+void change_rtc_date(uint8_t new_month, uint8_t new_day) {
 	RTC->WPR = 0xCA;
 	RTC->WPR = 0x53;
 	RTC->ISR |= RTC_ISR_INIT;
 	while ((RTC->ISR & RTC_ISR_INITF) != RTC_ISR_INITF);
 
 	// write new values
-	change_rtc_day(day);
-	change_rtc_month(month);
+	change_rtc_day(new_day);
+	change_rtc_month(new_month);
 
 	RTC->ISR &=~ RTC_ISR_INIT;
 	RTC->WPR = 0xFE;
 	RTC->WPR = 0x64;
+}
+
+void increase_minutes(uint8_t mins) {
+	uint8_t minutes = read_rtc_minutes();
+	minutes += mins;
+	if(minutes >= 60) {
+		change_rtc_minutes(minutes -= 60);
+		uint8_t hours = read_rtc_hours();
+		if(hours == 12) {
+			change_rtc_hours(1);
+			change_rtc_ampm((read_rtc_ampm() ^ 1));	// change am/pm
+		}
+		else {
+			change_rtc_hours(1);
+		}
+	}
+}
+
+void decrease_minutes(uint8_t mins) {
+	uint8_t minutes = read_rtc_minutes();
+	minutes -= mins;
+	if(minutes < 0) {
+		change_rtc_minutes(minutes += 60);
+		uint8_t hours = read_rtc_hours();
+		if(hours == 1) {
+			change_rtc_hours(12);
+			change_rtc_ampm((read_rtc_ampm() ^ 1));	// change am/pm
+		}
+		else {
+			change_rtc_hours(hours - 1);
+		}
+	}
+}
+
+void increase_hours(void) {
+	uint8_t hours = read_rtc_hours();
+	if(hours == 12) {
+		change_rtc_hours(1);
+		change_rtc_ampm((read_rtc_ampm() ^ 1));	// change am/pm
+	}
+	else {
+		change_rtc_hours(hours + 1);
+	}
+}
+
+void decrease_hours(void) {
+	uint8_t hours = read_rtc_hours();
+	if(hours == 1) {
+		change_rtc_hours(12);
+		change_rtc_ampm((read_rtc_ampm() ^ 1));
+	}
+	else {
+		change_rtc_hours(hours - 1);
+	}
 }

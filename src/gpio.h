@@ -9,7 +9,7 @@
 #define GPIO_H_
 
 /* Configure PA5 and PA6 as outputs to blink LEDs */
-void init_led(void);
+void init_error_led(void);
 
 void init_indication_led(void);
 
@@ -49,13 +49,5 @@ void prvIndication_LED(void *pvParameters);
 
 /* toggles the Error LED according to the error that occured */
 void prvError_LED(void * pvParameters);
-
-void increase_minutes(uint8_t mins);
-
-void decrease_minutes(uint8_t mins);
-
-void increase_hours(void);
-
-void decrease_hours(void);
 
 #endif /* GPIO_H_ */

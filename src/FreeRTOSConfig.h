@@ -14,10 +14,9 @@
 #include "stm32f0xx_it.h"
 #include "stm32f091xc.h"
 
+volatile unsigned long ulHighFrequencyTimerTicks; 	// for profiling Tasks
+
 /* redirect FreeRTOS port interrupts */
-//#define vPortSVCHandler							SVC_handler
-//#define xPortPendSVHandler						pending_SV_handler
-//#define xPortSysTickHandler						SysTick_handler
 #define vPortSVCHandler 		SVC_Handler
 #define xPortPendSVHandler 		PendSV_Handler
 #define xPortSysTickHandler 	SysTick_Handler
@@ -48,8 +47,10 @@
 /* run time stats */
 extern void init_timing_stats_timer(void);
 #define configGENERATE_RUN_TIME_STATS				1
+//#define configUSE_STATS_FORMATTING_FUNCTIONS		1
+#define configUSE_TRACE_FACILITY					1
 #define portCONFIGURE_TIMER_FOR_RUN_TIME_STATS()	init_timing_stats_timer()
-#define portGET_RUN_TIME_COUNTER_VALUE()			TIM3->CCR1
+#define portGET_RUN_TIME_COUNTER_VALUE()			ulHighFrequencyTimerTicks
 
 /* Co-routine definitions. */
 #define configUSE_CO_ROUTINES 			0

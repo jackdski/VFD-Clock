@@ -67,8 +67,13 @@ typedef enum {
 
 typedef enum {
 	Reset = 0,
-	Use_RTC = 1
+	Standby_Wakeup = 1
 } Time_Config_Options_E;
+
+typedef enum {
+	AM = 0,
+	PM = 1
+} Midday_Clock_E;
 
 typedef struct BLE_Message {
 	BLE_Message_Types_E message_type;

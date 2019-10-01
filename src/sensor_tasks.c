@@ -41,6 +41,8 @@
 extern CircBuf_t * TX_Buffer;
 extern CircBuf_t * RX_Buffer;
 
+static int8_t temperature = 1;	/* -128 - 127 deg C */
+
 
 /*	T A S K   H A N D L E S   */
 extern TaskHandle_t thRTC;
@@ -54,9 +56,9 @@ extern TaskHandle_t thBLEtx;
 /*	G L O B A L   V A R I A B L E S   */
 extern System_State_E system_state;
 
-extern uint8_t hours;		/* 1-12 */
-extern uint8_t minutes;		/* 0-59 */
-extern uint8_t seconds;		/* 0-59 */
+//extern uint8_t hours;		/* 1-12 */
+//extern uint8_t minutes;		/* 0-59 */
+//extern uint8_t seconds;		/* 0-59 */
 extern uint8_t ampm;
 extern int8_t temperature;	/* -128 - 127 */
 
@@ -84,6 +86,18 @@ extern HC_10_Status_E ble_status;
 /* if given the semaphore by the RTC Interrupt Handler, read the time and update the tube display */
 void prvRTC_Task(void *pvParameters) {
 	static uint32_t thread_notification;
+	static uint8_t hours = 12;		/* 1-12*/
+	static uint8_t minutes = 0;		/* 0-59 */
+	static uint8_t seconds = 0;		/* 0-59 */
+	static uint8_t ampm = PM;
+
+	/* if woken up from standby reset values */
+	if((uint32_t)pvParameters == Standby_Wakeup) {
+    	hours = read_rtc_hours();
+    	minutes = read_rtc_minutes();
+    	seconds = read_rtc_seconds();
+    	ampm = read_rtc_ampm();
+	}
 
 	for( ;; ) {
 		thread_notification = ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
@@ -104,6 +118,10 @@ void prvConfig_Task(void *pvParameters) {
 	static TickType_t delay_time = pdMS_TO_TICKS(500);
 	static Light_Flash_E config_display_flashing = Flashing;
 	for( ;; ) {
+		uint8_t hours = read_rtc_hours();
+		uint8_t minutes = read_rtc_minutes();
+		uint8_t seconds = read_rtc_seconds();
+
 		if(system_state != Config) {
 			vTaskSuspend( NULL );	// suspend this task if outside of Config mode
 			/* set RTC values to hours, minutes, seconds variable values */
@@ -134,6 +152,18 @@ void prvTemperature_Task(void *pvParameters) {
 		trigger_sample_mpl();
 		temperature = read_temp_c();
 		vTaskDelay(delay_time);  // 3s
+	}
+}
+
+void prvTemperature_Button_Task(void *pvParameters) {
+	static uint32_t thread_notification;
+	for( ;; ) {
+		thread_notification = ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
+		if(thread_notification != 0) {
+			check_whoami_mpl();  // make sure sensor is available
+			trigger_sample_mpl();
+			temperature = read_temp_c();
+		}
 	}
 }
 
@@ -345,11 +375,8 @@ void prvBLE_Receive_Task(void *pvParameters) {
 					}
 					// change time on RTC and update
 					else {
-						hours = temp_hours;
-						minutes = temp_mins;
-						seconds = 0;
-						change_rtc_time(hours, minutes, seconds, temp_ampm);
-						update_time(hours, minutes, seconds);
+						change_rtc_time(temp_hours, temp_mins, 0, temp_ampm);
+						update_time(temp_hours, temp_mins, 0);
 					}
 				}
 				// "TURNOFF"
