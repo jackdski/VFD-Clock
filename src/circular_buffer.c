@@ -90,7 +90,7 @@ uint8_t is_empty_CircBuf(CircBuf_t * buf){
 }
 
 // add a string of a certain length to the buffer
-void load_str_to_CircBuf(CircBuf_t * buf, uint8_t * string, uint8_t length){
+void load_str_to_CircBuf(CircBuf_t * buf, char * string, uint8_t length){
     if(!buf || !string )
         return;
     volatile uint8_t i;

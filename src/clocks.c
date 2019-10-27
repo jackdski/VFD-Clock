@@ -10,6 +10,7 @@
 
 /*	A P P L I C A T I O N   I N C L U D E S   */
 #include "clocks.h"
+#include "usart.h"
 
 /*	G L O B A L   V A R I A B L E S   */
 extern unsigned long ulHighFrequencyTimerTicks;
@@ -50,6 +51,7 @@ void init_sysclock(void) {
 					| RCC_APB1ENR_TIM14EN
 					| RCC_APB1ENR_I2C1EN
 					| RCC_APB1ENR_I2C2EN
+					| RCC_APB1ENR_WWDGEN
 					| RCC_APB1ENR_PWREN);
 
 	RCC->APB2ENR =  ( RCC_APB2ENR_ADCEN
@@ -92,6 +94,25 @@ void init_timing_stats_timer(void) {
 	NVIC_EnableIRQ(TIM3_IRQn);
 }
 
+/*	W A T C H D O G   */
+void init_wwdg(void) {
+	/* Set prescaler to have a roll-over each about 5.5ms,
+	set window value (about 2.25ms) */
+	WWDG->CFR = 0x60;
+
+	WWDG->SR |= WWDG_SR_EWIF;
+	WWDG->CR |= WWDG_CR_WDGA; /* Activate WWDG */
+	NVIC_EnableIRQ(WWDG_IRQn);
+}
+
+void WWDG_IRQHandler(void) {
+	if(WWDG->CFR & WWDG_CFR_EWI) {
+		uart_send_bytes("ERROR OCCURED", 14);
+	}
+	WWDG->SR &= ~(WWDG_SR_EWIF);  // clear EWI flag
+}
+
+/*	P R O F I L I N G  */
 void TIM3_IRQHandler(void) {
 	NVIC_ClearPendingIRQ(TIM3_IRQn);
 	TIM3->SR &= ~(TIM_SR_UIF);

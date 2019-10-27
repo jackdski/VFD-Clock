@@ -12,8 +12,8 @@
 /* Configure the clock-related registers */
 void init_sysclock(void);
 
+void init_wwdg(void);
 void init_timing_stats_timer(void);
-
 void StartHSE(void);
 
 #endif /* CLOCKS_H_ */

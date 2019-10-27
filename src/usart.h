@@ -10,7 +10,7 @@
 
 #include "vfd_typedefs.h"
 
-void init_usart(void);
+void init_usart(USART_TypeDef * USARTx);
 
 void uart_disable_peripheral(void);
 

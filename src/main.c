@@ -52,6 +52,7 @@ TaskHandle_t thTemperatureButton = NULL;
 /* S O F T W A R E   T I M E R S   */
 TimerHandle_t three_sec_timer = NULL;
 TimerHandle_t five_sec_timer = NULL;
+TimerHandle_t ten_sec_timer = NULL;
 TimerHandle_t button_timer = NULL;
 
 /*	G L O B A L   V A R I A B L E S   */
@@ -98,13 +99,14 @@ int main(void) {
 	RX_Buffer = create_CircBuf(50);
 
 	/* initialize peripherals */
+	init_wwdg();
 	init_sysclock();
 	init_rtc();
 	init_error_led();
 	init_indication_led();
 	init_buttons();
-//	init_i2c();
-	init_usart();
+	init_i2c(SENSOR_I2C);
+	init_usart(BLE_USART);
 	configure_shift_pins();
 	init_pwm();
 	init_adc();
@@ -137,7 +139,7 @@ int main(void) {
 	configASSERT(rtcReturned == pdPASS);
 	configASSERT(sleepReturned == pdPASS);
 	configASSERT(configReturned = pdPASS);
-//	configASSERT(tempReturned == pdPASS);
+	configASSERT(TempButtonreturned == pdPASS);
 	configASSERT(BLERXreturned == pdPASS);
 	configASSERT(BLETXreturned == pdPASS);
 	configASSERT(Lightreturned == pdPASS);
@@ -148,7 +150,8 @@ int main(void) {
     /* initialize software timers */
     three_sec_timer = xTimerCreate("3s Timer", pdMS_TO_TICKS(100), pdTRUE, 0, three_sec_timer_callback);
 	five_sec_timer = xTimerCreate("5s Timer", pdMS_TO_TICKS(5000), pdFALSE, 0, five_sec_timer_callback);
-    button_timer = xTimerCreate("Button Timer", pdMS_TO_TICKS(50), pdTRUE, 0, button_timer_callback);
+    ten_sec_timer = xTimerCreate("10s Timer", pdMS_TO_TICKS(10000), pdFALSE, 0, ten_sec_timer_callback);
+	button_timer = xTimerCreate("Button Timer", pdMS_TO_TICKS(50), pdTRUE, 0, button_timer_callback);
 
     /* initialize SysTick timer to 10ms ticks */
     SysTick_Config(60000);
@@ -176,9 +179,7 @@ void vApplicationMallocFailedHook( void )
 
 void vApplicationIdleHook( void )
 {
-    for( ;; ) {
-    	__WFI();	// sleep (stop the CPU clock) when the opportunity is given
-    }
+//    for( ;; ) {	}
 }
 /*-----------------------------------------------------------*/
 

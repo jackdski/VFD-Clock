@@ -83,6 +83,16 @@ void five_sec_timer_callback(TimerHandle_t xTimer) {
 	indication_light_status = Flashing;
 }
 
+/* call back function for the software timer created to leave Config mode
+*	 without touching the buttons */
+void ten_sec_timer_callback(TimerHandle_t xTimer) {
+	system_state = Clock;
+	// disable 2Hz display flashing and resume normal clock operations
+	vTaskSuspend(thConfig);
+	vTaskResume(thRTC);
+	indication_light_status = Flashing;	// trigger flashes
+}
+
 /* call back function for the 50ms software timer created to count
  * 	how long the button has been held down for and how fast the
  * 	time should be changed

@@ -43,10 +43,52 @@
 #include "stm32f0xx_hal.h"
 #include "stm32f0xx_nucleo.h"
 
-/* Exported types ------------------------------------------------------------*/
-/* Exported constants --------------------------------------------------------*/
-/* Exported macro ------------------------------------------------------------*/
-/* Exported functions ------------------------------------------------------- */
+/*	P R O F I L E R   */
+#define PROFILER_TIMER			TIM3
+
+/*	I 2 C   */
+//#define	USE_I2C1
+#ifdef	USE_I2C1
+#define I2CX					I2C1
+#define I2C_PORT				GPIOF
+#define I2C_SDA_PIN				0		// PF0 - AF1
+#define I2C_SCL					1		// PF1 - AF1
+#define I2C_AF					1
+#else
+#define	SENSOR_I2C				I2C2
+#define I2C_GPIO_PORT			GPIOA
+#define I2C_SDA					12		// PA12 - AF5
+#define I2C_SCL					11		// PA11 - AF5
+#define I2C_AF					5
+#endif
+
+/* TMP35  */
+#define	TMP35_PORT
+#define TMP35_PIN
+
+/*	U S A R T   */
+#define BLE_USART				USART1
+#define BLE_TX_PORT				GPIOA
+#define BLE_TX_PIN				9
+#define BLE_RX_PORT				GPIOA
+#define BLE_RX_PIN				10
+#define BLE_STATUS_PORT			GPIOA
+#define BLE_STATUS_PIN			8
+
+/*	P W M   */
+#define PWM_PORT				GPIOA
+#define PWM_PIN					4
+#define PWM_TIMER				TIM14
+#define PWM_SOURCE_FREQUENCY	1000000		// 8MHz with prescalar of 8
+#define	PWM_FREQUENCY			1000  //Hz	//400	// 400us or 2.5kHz
+#define CALC_PWM_DUTY_CYCLE(X)	((X * PWM_SOURCE_FREQUENCY) / PWM_FREQUENCY)
+#define BRIGHTNESS_LOW			10
+#define BRIGHTNESS_MEDIUM		45
+#define BRIGHTNESS_HIGH			70
+#define BRIGHTNESS_MAX			99
+
+/*	L O W   P O W E R   */
+#define LP_TIMER				TIM1
 
 #endif /* __MAIN_H */
 

@@ -18,6 +18,10 @@ void three_sec_timer_callback(TimerHandle_t xTimer);
  * is received over UART */
 void five_sec_timer_callback(TimerHandle_t xTimer);
 
+/* call back function for the software timer created to leave Config mode
+*	 without touching the buttons */
+void ten_sec_timer_callback(TimerHandle_t xTimer);
+
 /* call back function for the 50ms software timer created to count
  * 	how long the button has been held down for and how fast the
  * 	time should be changed */

@@ -15,6 +15,7 @@
 #include "task.h"
 
 /*	A P P L I C A T I O N   I N C L U D E S   */
+#include "main.h"
 #include "usart.h"
 #include "vfd_typedefs.h"
 #include "circular_buffer.h"
@@ -25,14 +26,14 @@ extern CircBuf_t * TX_Buffer;
 extern CircBuf_t * RX_Buffer;
 extern HC_10_Status_E ble_status;
 
-#define 	USART1_TX	9	// PA9
-#define		USART1_RX	10	// PA10
-#define		HC10_STATUS	8	// PA8
+//#define 	USART1_TX	9	// PA9
+//#define		USART1_RX	10	// PA10
+//#define		HC10_STATUS	8	// PA8
 
 /*	U A R T   F U N C T I O N S   */
-void init_usart(void) {
+void init_usart(USART_TypeDef * USARTx) {
 	/* disable USART */
-	USART1->CR1 &=  ~(USART_CR1_UE);	// disable USART
+	USARTx->CR1 &=  ~(USART_CR1_UE);	// disable USART
 
 	/* configure GPIO */
 	/* select alternate function mode */
@@ -44,49 +45,55 @@ void init_usart(void) {
 				  	  |(0x01 << GPIO_AFRH_AFRH2_Pos)); // AFRL (Ports 8-15)
 
 	/* p.703 in reference manual, double if oversampling by 8 instead of 16 */
-	USART1->BRR = 840;	// set to 9600 baud (actual is 9542 baud)
+	USARTx->BRR = 840;	// set to 9600 baud (actual is 9542 baud)
 
 	/* Control Register 1 */
-	USART1->CR1 |= 	( USART_CR1_TE			// enable Transmitter
-					| USART_CR1_RE 			// enable Receiver
-					| USART_CR1_RXNEIE		// enable RX interrupt
-					| USART_CR1_UESM		// enable USART in STOP mode
-					| (USART_CR1_M & 0) 	// 8-bit character length
-					| USART_CR1_PS);		// odd parity
+	USARTx->CR1 |= 	( USART_CR1_TE			// enable Transmitter
+						| USART_CR1_RE 			// enable Receiver
+						| USART_CR1_RXNEIE		// enable RX interrupt
+						| USART_CR1_UESM		// enable USART in STOP mode
+						| (USART_CR1_M & 0) 	// 8-bit character length
+						| USART_CR1_PS);		// odd parity
 
-	USART1->CR1 &= ~(USART_CR1_OVER8);		// oversample
+	USARTx->CR1 &= ~(USART_CR1_OVER8);		// oversample
 
 
 	/* Control Register 2 */
-	USART1->CR2 |= (USART_CR2_STOP_Msk & 0);	// 1 stop bit
+	USARTx->CR2 |= (USART_CR2_STOP_Msk & 0);	// 1 stop bit
 
-	USART1->CR2 &= ~( USART_CR2_RTOEN		// disable receiver timeout
-					| USART_CR2_ABREN		// disable auto baud rate detection
-					| USART_CR2_MSBFIRST 	// LSB first
-					| USART_CR2_LINEN		// disable LIN mode
-					| USART_CR2_CLKEN);		// CK pin disabled
+	USARTx->CR2 &=  ~( USART_CR2_RTOEN		// disable receiver timeout
+						| USART_CR2_ABREN		// disable auto baud rate detection
+						| USART_CR2_MSBFIRST 	// LSB first
+						| USART_CR2_LINEN		// disable LIN mode
+						| USART_CR2_CLKEN);		// CK pin disabled
 
 
 	/* Control Register 3 */
-	USART1->CR3 |=  ( USART_CR3_WUFIE
-					| (USART_CR3_WUS & 0x3)	// Wake up from Stop mode interrupt trigger on RXNE
-					| USART_CR3_OVRDIS); 		// disable Overrun detection
+	USARTx->CR3 |=   ( USART_CR3_WUFIE
+						| (USART_CR3_WUS & 0x3)	// Wake up from Stop mode interrupt trigger on RXNE
+						| USART_CR3_OVRDIS); 		// disable Overrun detection
 
-	USART1->CR3 &= ~( USART_CR3_CTSE	// disable CTS
-					| USART_CR3_RTSE	// disable RTS
-					| USART_CR3_DMAT	// disable DMA transmitter
-					| USART_CR3_DMAR	// disable DMA receiver
-					| USART_CR3_SCEN	// disable Smartcard mode
-					| USART_CR3_HDSEL	// disable Half-Duplex selection
-					| USART_CR3_IREN	// disable IrDA
-					| USART_CR3_EIE);	// disable Error interrupt
+	USARTx->CR3 &=  ~( USART_CR3_CTSE	// disable CTS
+						| USART_CR3_RTSE	// disable RTS
+						| USART_CR3_DMAT	// disable DMA transmitter
+						| USART_CR3_DMAR	// disable DMA receiver
+						| USART_CR3_SCEN	// disable Smartcard mode
+						| USART_CR3_HDSEL	// disable Half-Duplex selection
+						| USART_CR3_IREN	// disable IrDA
+						| USART_CR3_EIE);	// disable Error interrupt
 
-	USART1->ICR = 0x0000;			/* clear interrupt flags */
-	USART1->CR1 |=  USART_CR1_UE;	/* enable USART */
+	USARTx->ICR = 0x0000;			/* clear interrupt flags */
+	BLE_USART->CR1 |=  USART_CR1_UE;	/* enable USART */
 
 	/* enable USART1 interrupts */
-	NVIC_EnableIRQ(USART1_IRQn);
-	NVIC_SetPriority(USART1_IRQn, 2);
+	if(USARTx == USART1) {
+		NVIC_EnableIRQ(USART1_IRQn);
+		NVIC_SetPriority(USART1_IRQn, 2);
+	}
+	else if(USARTx == USART2) {
+		NVIC_EnableIRQ(USART2_IRQn);
+		NVIC_SetPriority(USART2_IRQn, 2);
+	}
 
 	wake_up_hc_10();	// make sure HC-10 BLE module is awake
 
@@ -110,12 +117,12 @@ void init_usart(void) {
 }
 
 void inline uart_disable_peripheral(void) {
-	USART1->CR1 &=  ~USART_CR1_UE;	/* disable USART */
+	BLE_USART->CR1 &=  ~USART_CR1_UE;	/* disable USART */
 }
 
 void inline uart_send_byte(uint8_t byte) {
-	USART1->TDR = byte;
-	while(!(USART1->ISR & USART_ISR_TC));
+	BLE_USART->TDR = byte;
+	while(!(BLE_USART->ISR & USART_ISR_TC));
 }
 
 void uart_send_bytes(uint8_t * str, uint8_t len) {
@@ -132,7 +139,7 @@ void uart_send_ble_message(BLE_Message_t msg) {
 
 /* loads "MSGFAIL" into the TX message buffer that sends every 1s */
 void uart_send_msgfail(void) {
-	uint8_t * msgfail = "MSGFAIL\0";
+	char * msgfail = "MSGFAIL\0";
 	load_str_to_CircBuf(TX_Buffer, msgfail, 11);
 }
 

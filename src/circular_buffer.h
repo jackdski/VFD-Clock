@@ -32,7 +32,7 @@ void add_item_CircBuf(CircBuf_t * buf, uint8_t item);
 uint8_t is_empty_CircBuf(CircBuf_t * buf);
 
 // add a string of a certain length to the buffer
-void load_str_to_CircBuf(CircBuf_t * buf, uint8_t * string, uint8_t length);
+void load_str_to_CircBuf(CircBuf_t * buf, char * string, uint8_t length);
 
 // remove and return a piece of data from the circBuf
 uint8_t remove_item(CircBuf_t * buf);

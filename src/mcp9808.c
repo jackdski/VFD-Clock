@@ -62,7 +62,7 @@ void config_temperature_sensor() {
 
 	i2c_send_stop();
 
-//	i2c_write_reg((uint8_t)MCP9808_ADDR, (uint8_t)CONFIG, 0x00);
+//	i2c_write_reg((uintn8_t)MCP9808_ADDR, (uint8_t)CONFIG, 0x00);
 }
 
 void read_config_register() {

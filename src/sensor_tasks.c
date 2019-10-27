@@ -114,17 +114,18 @@ void prvRTC_Task(void *pvParameters) {
 void prvConfig_Task(void *pvParameters) {
 	static TickType_t delay_time = pdMS_TO_TICKS(500);
 	static Light_Flash_E config_display_flashing = Flashing;
-	static config_display_brightness = 75;
+	static uint16_t config_display_brightness = 75;
 
 	for( ;; ) {
 		uint8_t hours = read_rtc_hours();
 		uint8_t minutes = read_rtc_minutes();
 		uint8_t seconds = read_rtc_seconds();
+		uint8_t ampm = read_rtc_ampm();
 
 		if(system_state != Config) {
 			vTaskSuspend( NULL );	// suspend this task if outside of Config mode
 			/* set RTC values to hours, minutes, seconds variable values */
-			change_rtc_time(hours, minutes, seconds, PM);
+			change_rtc_time(hours, minutes, seconds, ampm);
 			update_time(hours, minutes, seconds);
 		}
 		/* if currently off, update display and turn it on */
@@ -208,7 +209,8 @@ void prvChange_Brightness_Task(void *pvParameters) {
 	}
 
 	for( ;; ) {
-		display_brightness = (TIM14->CCR1 * 100) / (uint16_t)PWM_FREQUENCY;
+//		display_brightness = (TIM14->CCR1 * 100) / (uint16_t)PWM_FREQUENCY;
+		display_brightness = get_pwm_duty_cycle();
 		if(display_brightness == target_brightness) {
 		     vTaskSuspend( NULL );	// suspend this task
 		}
@@ -278,7 +280,7 @@ void prvBLE_Receive_Task(void *pvParameters) {
 				// "TEMP"
 				if(strcmp((const char *)xRXMessage, (const char *)temp_msg) == 0) {
 					system_state = BLE_Temperature;
-					uint8_t * msg = "TEMP:OK\0";
+					char * msg = "TEMP:OK\0";
 					load_str_to_CircBuf(TX_Buffer, msg, 8);
 					toggle_error_led();
 					vTaskSuspend(thRTC);
@@ -288,7 +290,7 @@ void prvBLE_Receive_Task(void *pvParameters) {
 				// "DATE"
 				else if(strcmp((const char *)xRXMessage, (const char *)date_msg) == 0) {
 					system_state = BLE_Date;
-					uint8_t * msg = "DATE:OK\0";
+					char * msg = "DATE:OK\0";
 					load_str_to_CircBuf(TX_Buffer, msg, 8);
 					toggle_error_led();
 					vTaskSuspend(thRTC);
@@ -312,7 +314,7 @@ void prvBLE_Receive_Task(void *pvParameters) {
 					}
 					else {
 						change_rtc_date(temp_month, temp_day);
-						uint8_t * msg = "Date:OK\0";
+						char * msg = "Date:OK\0";
 						load_str_to_CircBuf(TX_Buffer, msg, 8);
 					}
 				}
@@ -320,13 +322,13 @@ void prvBLE_Receive_Task(void *pvParameters) {
 				else if(strncmp((const char *)xRXMessage, (const char *)autobright_msg, 11) == 0) {
 					// "AUTOBRIGHT:ON"
 					if(strcmp((const char *)xRXMessage, (const char *)autobright_on_msg) == 0) {
-						uint8_t * msg = "Brightness ON\0";
+						char * msg = "Brightness ON\0";
 						load_str_to_CircBuf(TX_Buffer, msg, 14);
 						vTaskResume( thAutoBrightAdj );		// resume task
 					}
 					// "AUTOBRIGHT:OFF"
 					else if(strcmp((const char *)xRXMessage, (const char *)autobright_off_msg) == 0) {
-						uint8_t * msg = "Brightness OFF\0";
+						char * msg = "Brightness OFF\0";
 						load_str_to_CircBuf(TX_Buffer, msg, 15);
 						vTaskSuspend( thAutoBrightAdj );	// suspend task until On msg received
 					}
@@ -336,13 +338,13 @@ void prvBLE_Receive_Task(void *pvParameters) {
 						// check if in correct range
 						if((xRXMessage[11] >= '0') && (xRXMessage[11] <= '9') && (xRXMessage[12] >= '0') && (xRXMessage[12] <= '9')) {
 							// change brightness to xRXMessage[11:12]
-							uint8_t * msg = "BRIGHTNESS:OK\0";
+							char * msg = "BRIGHTNESS:OK\0";
 							load_str_to_CircBuf(TX_Buffer, msg, 14);
 							target_brightness = ((xRXMessage[11] - 48) * 10) + (xRXMessage[12] - 48);
 							vTaskResume( thBrightness_Adj );		// resume task that changes brightness
 						}
 						else {  // not in range 0-99
-							uint8_t * msg = "Use values between 0 and 99\0";
+							char * msg = "Use values between 0 and 99\0";
 							load_str_to_CircBuf(TX_Buffer, msg, 29);
 						}
 					}
@@ -388,7 +390,7 @@ void prvBLE_Receive_Task(void *pvParameters) {
 				}
 				// "TURNOFF"
 				else if(strcmp((const char *)xRXMessage, (const char *)turnoff_msg) == 0) {
-					uint8_t * msg = "Remote Turn Off not available\0";
+					char * msg = "Remote Turn Off not available\0";
 					load_str_to_CircBuf(TX_Buffer, msg, 30);
 				}
 				else {

@@ -41,7 +41,7 @@ volatile unsigned long ulHighFrequencyTimerTicks; 	// for profiling Tasks
 #define configUSE_APPLICATION_TASK_TAG	0
 #define configUSE_COUNTING_SEMAPHORES	1
 #define configUSE_TASK_NOTIFICATIONS	1
-#define configUSE_TICKLESS_IDLE			0
+#define configUSE_TICKLESS_IDLE			2  // use user-defined tickless idle
 #define configMESSAGE_BUFFER_LENGTH_TYPE			size_t//uint8_t
 
 /* run time stats */
@@ -63,10 +63,8 @@ extern void init_timing_stats_timer(void);
 #define configTIMER_TASK_STACK_DEPTH	( 80 )
 
 /* Low Power Definitions */
-#define configEXPECTED_IDLE_TIME_BEFORE_SLEEP 	2
+#define configEXPECTED_IDLE_TIME_BEFORE_SLEEP 	5
 #define portSUPPRESS_TICKS_AND_SLEEP( xIdleTime )	vApplicationSleep( xIdleTime )
-//#define configPRE_STOP_PROCESSING()
-//#define configPOST_STOP_PROCESSING()				init_sysclock()
 
 /* Normal assert() semantics without relying on the provision of an assert.h
 header file. */

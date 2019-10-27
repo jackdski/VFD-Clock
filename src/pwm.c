@@ -14,6 +14,7 @@
 #include "task.h"
 
 /*	A P P L I C A T I O N   I N C L U D E S   */
+#include "main.h"
 #include "pwm.h"
 #include "gpio.h"
 #include "tubes.h"

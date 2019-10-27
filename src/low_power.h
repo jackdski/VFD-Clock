@@ -8,10 +8,22 @@
 #ifndef LOW_POWER_H_
 #define LOW_POWER_H_
 
+#include "FreeRTOS.h"
+
+
 /* this will prepares the device for DeepSleep/Standby Mode, which is a mode
  * that "stops all the clocks in the core supply domain and disables the PLL
  * and the HSI, HSI48, HSI14 and HSE oscillators" and "SRAM and register
  * contents are lost except for registers in the RTC domain and Standby circuitry". */
 void configure_for_deepsleep(void);
+
+
+/*	T I C K L E S S   I D L E   */
+void vApplicationSleep( TickType_t xExpectedIdleTime );
+unsigned long ulGetExternalTime(void);
+void vSetWakeTimeInterrupt(TickType_t xExpectedIdleTime);
+void prvSleep(void);
+void prvStartTickInterruptTimer(void);
+void prvStopTickInterruptTimer(void);
 
 #endif /* LOW_POWER_H_ */

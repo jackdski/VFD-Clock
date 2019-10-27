@@ -429,19 +429,19 @@ void prvError_LED(void * pvParameters) {
 	for( ;; ) {
 		toggle_error_led();
 		vTaskDelay(delay_time_ble);
-//		if(error_light_status == Flashing) {
-//			if(efuse_status == Efuse_Error) {
-//				toggle_error_led();
-//				vTaskDelay(delay_time_efuse);
-//			}
-//			else if(ble_status == BLE_Error) {
-//				toggle_error_led();
-//				vTaskDelay(delay_time_ble);
-//			}
-//		}
-//		else {
-//			clear_error_led();
-//		}
+		if(error_light_status == Flashing) {
+			if(efuse_status == Efuse_Error) {
+				toggle_error_led();
+				vTaskDelay(delay_time_efuse);
+			}
+			else if(ble_status == BLE_Error) {
+				toggle_error_led();
+				vTaskDelay(delay_time_ble);
+			}
+		}
+		else {
+			clear_error_led();
+		}
 	}
 }
 
