@@ -21,7 +21,6 @@
 /*	F U N C T I O N S   */
 
 void init_adc(void) {
-#ifdef	DEMO
 	/* configure for Photoresistor Left - PA6 AF0 */
 	GPIOA->MODER = (GPIOA->MODER & ~(GPIO_MODER_MODER6)) | GPIO_MODER_MODER6_1;	// select alternate function mode
 	GPIOA->AFR[0] &=  ~(GPIO_AFRL_AFRL6); // select AF0 on PA6, AFRL (Ports 0-7)
@@ -29,16 +28,6 @@ void init_adc(void) {
 	/* configure for Photoresistor Right - PA7 AF0*/
 	GPIOA->MODER = (GPIOA->MODER & ~(GPIO_MODER_MODER7)) | GPIO_MODER_MODER7_1;  /* select alternate function mode */
 	GPIOA->AFR[0] &=  ~(GPIO_AFRL_AFRL7); // select AF0 on PA7, AFRL (Ports 0-7)
-
-#else
-	/* configure for Photoresistor Left - PA2 AF0 */
-	GPIOA->MODER = (GPIOA->MODER & ~(GPIO_MODER_MODER2)) | GPIO_MODER_MODER2_1;	// select alternate function mode
-	GPIOA->AFR[0] &=  ~(GPIO_AFRL_AFRL2); // // select AF0 on PA2, AFRL (Ports 0-7)
-
-	/* configure for Photoresistor Right - PB1 AF0*/
-//	GPIOB->MODER = (GPIOB->MODER & ~(GPIO_MODER_MODER1)) | GPIO_MODER_MODER1_1;  /* select alternate function mode */
-//	GPIOB->AFR[0] &=  ~(GPIO_AFRL_AFRL1); // select AF0 on PB1, AFRL (Ports 0-7)
-#endif
 
 	calibrate_adc();
 

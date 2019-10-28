@@ -69,14 +69,14 @@ int8_t is_full_CircBuf(CircBuf_t * buf) {
 }
 
 // add an item to the tail of the circBuf
-void add_item_CircBuf(CircBuf_t * buf, uint8_t item) {
+void add_item_CircBuf(CircBuf_t * buf, char item) {
     if(!buf)
         return;
     else if(is_full_CircBuf(buf))
         return;
 
     *buf->tail = item;
-    buf->tail = (buf->tail - (uint8_t *)buf->buffer + 1)%(buf->length) + (uint8_t *)buf->buffer;
+    buf->tail = (buf->tail - (char *)buf->buffer + 1)%(buf->length) + (char *)buf->buffer;
     buf->num_items ++;
 }
 
@@ -108,7 +108,7 @@ uint8_t remove_item(CircBuf_t * buf) {
         return 0xFF;
 
     uint8_t data = *buf->head;
-    buf->head = (buf->head - (uint8_t *)buf->buffer + 1)%(buf->length) + (uint8_t *)buf->buffer;
+    buf->head = (buf->head - (char *)buf->buffer + 1)%(buf->length) + (char *)buf->buffer;
     buf->num_items --;
 
     return data;

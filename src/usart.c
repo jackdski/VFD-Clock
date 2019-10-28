@@ -125,7 +125,7 @@ void inline uart_send_byte(uint8_t byte) {
 	while(!(BLE_USART->ISR & USART_ISR_TC));
 }
 
-void uart_send_bytes(uint8_t * str, uint8_t len) {
+void uart_send_bytes(char * str, uint8_t len) {
 	uint8_t i;
 	for(i = 0; i < len; i++)
 		uart_send_byte(str[i]);
@@ -149,7 +149,7 @@ void uart_send_msgfail(void) {
  * 	@param baud: 9600, 57600, or 115200
  */
 void set_hc_10_baud_rate(uint32_t baud) {
-	uint8_t baud_str[8] = "AT+BAUD";
+	char baud_str[8] = "AT+BAUD";
 	switch(baud) {
 		case 9600: baud_str[7] = '0'; break; //strcat(baud_str, "0"); break;
 		case 57600: baud_str[7] = '3'; break;
@@ -160,27 +160,27 @@ void set_hc_10_baud_rate(uint32_t baud) {
 
 /* response should be "OK_Get:[baud]" */
 void request_hc_10_baud_rate(void) {
-	uint8_t baud_str[8] = "AT+BAUD?";
+	char baud_str[8] = "AT+BAUD?";
 	uart_send_bytes(baud_str, 8);
 }
 
 
 /* Will set PIO11 to the connected status pin */
 void set_hc_10_status_pin(void) {
-	uint8_t sys_led_str[8] = "AT+PIO11";
+	char sys_led_str[8] = "AT+PIO11";
 	uart_send_bytes(sys_led_str, 8);
 }
 
 /* wakes up the HC-10 Bluetooth Module */
 void wake_up_hc_10(void) {
-	uint8_t wake_up_text[81] = "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx";
+	char wake_up_text[81] = "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx";
 	uart_send_bytes(wake_up_text, 81);
 	ble_status = Waking_Up;
 	// should receive "OK+WAKE" back
 }
 
 void set_sleep_mode_hc_10(void) {
-	uint8_t sleep_text[8] = "AT+SLEEP";
+	char sleep_text[8] = "AT+SLEEP";
 	uart_send_bytes(sleep_text, 8);
 	// should receive "OK+SLEEP" back
 }

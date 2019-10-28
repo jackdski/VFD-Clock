@@ -62,9 +62,11 @@
 #define I2C_AF					5
 #endif
 
-/* TMP35  */
-#define	TMP35_PORT
-#define TMP35_PIN
+/* TMP36  */
+#define	TMP36_OUT_PORT			GPIOB
+#define TMP36_OUT_PIN			1
+#define	TMP36_SHDW_PORT			GPIOB
+#define TMP36_SHDW_PIN			2
 
 /*	U S A R T   */
 #define BLE_USART				USART1

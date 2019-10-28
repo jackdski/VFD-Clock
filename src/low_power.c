@@ -8,7 +8,7 @@
 #include "stm32f091xc.h"
 #include <stdint.h>
 
-// Application Includes
+/*	A P P L I C A T I O N   I N C L U D E S   */
 #include "low_power.h"
 #include "usart.h"
 #include "rtc.h"
@@ -16,9 +16,12 @@
 #include "i2c.h"
 #include "adc.h"
 
+/*	F R E E R T O S   I N C L U D E S   */
 #include "FreeRTOS.h"
 #include "task.h"
 
+
+/*	L O W - P O W E R   */
 void configure_pwr_for_sleep(void) {
     RCC->APB1ENR |= RCC_APB1ENR_PWREN;
 	PWR->CSR |= PWR_CSR_EWUP2;		// enable WKUP2 on PC13

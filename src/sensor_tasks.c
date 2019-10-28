@@ -27,20 +27,16 @@
 #include "rtc.h"
 #include "tubes.h"
 #include "pwm.h"
-#include "mcp9808.h"
 #include "MPL3115A2.h"
+#include "tmp36.h"
 #include "callbacks.h"
 #include "low_power.h"
 
-#define PC3_ADC_CHANNEL		13	// pin PC3 is channel 13
-
-#define BLE_MSG_SIZE		sizeof(BLE_Message_t);
-
-#define USE_BOTH_PHOTORESISTORS
-
+// globals
 extern CircBuf_t * TX_Buffer;
 extern CircBuf_t * RX_Buffer;
 
+// private variables
 static int8_t temperature = 1;	/* -128 - 127 deg C */
 
 
@@ -86,14 +82,14 @@ void prvRTC_Task(void *pvParameters) {
 	static uint8_t hours = 12;		/* 1-12*/
 	static uint8_t minutes = 0;		/* 0-59 */
 	static uint8_t seconds = 0;		/* 0-59 */
-	static uint8_t ampm = PM;
+//	static uint8_t ampm = PM;
 
 	/* if woken up from standby reset values */
 	if((uint32_t)pvParameters == Standby_Wakeup) {
     	hours = read_rtc_hours();
     	minutes = read_rtc_minutes();
     	seconds = read_rtc_seconds();
-    	ampm = read_rtc_ampm();
+//    	ampm = read_rtc_ampm();
 	}
 
 	for( ;; ) {
@@ -147,10 +143,19 @@ void prvConfig_Task(void *pvParameters) {
 /* reads the temperature every 5 seconds over I2C and updates the tube display */
 void prvTemperature_Task(void *pvParameters) {
 	static TickType_t delay_time = pdMS_TO_TICKS( 3000 ); // 3s
+	static uint32_t tmp_out_measurement = 0;
 	for( ;; ) {
+#ifdef	USE_I2C
 		check_whoami_mpl();  // make sure sensor is available
 		trigger_sample_mpl();
 		temperature = read_temp_c();
+#else
+		tmp_disable_shutdown();
+		select_adc_channel(TMP_ADC_CHANNEL);
+		tmp_out_measurement = sample_adc();
+		temperature = tmp_calculate_celsius_temperature(tmp_out_measurement);
+		tmp_enable_shutdown();
+#endif
 		vTaskDelay(delay_time);  // 3s
 	}
 }
@@ -255,7 +260,7 @@ void prvBLE_Receive_Task(void *pvParameters) {
 	/* strings that should be received */
 	static uint8_t wake_up_msg[] = "OK+WAKE";
 	static uint8_t sleep_msg[] = "OK+SLEEP";
-	static uint8_t baud_one[] = "OK+Set:9600";
+//	static uint8_t baud_one[] = "OK+Set:9600";
 
 	for( ;; ) {
 	    get_hc_10_status();

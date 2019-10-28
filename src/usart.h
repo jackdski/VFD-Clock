@@ -16,7 +16,7 @@ void uart_disable_peripheral(void);
 
 void uart_send_byte(uint8_t byte);
 
-void uart_send_bytes(uint8_t * str, uint8_t len);
+void uart_send_bytes(char * str, uint8_t len);
 
 void uart_send_ble_message(BLE_Message_t msg);
 

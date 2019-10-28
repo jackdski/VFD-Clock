@@ -107,7 +107,8 @@ void init_wwdg(void) {
 
 void WWDG_IRQHandler(void) {
 	if(WWDG->CFR & WWDG_CFR_EWI) {
-		uart_send_bytes("ERROR OCCURED", 14);
+		char * error_str = "ERROR OCCURED";
+		uart_send_bytes(error_str, 14);
 	}
 	WWDG->SR &= ~(WWDG_SR_EWIF);  // clear EWI flag
 }

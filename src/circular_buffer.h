@@ -9,9 +9,9 @@
 #define CIRCULAR_BUFFER_H_
 
 typedef struct {
-	uint8_t * buffer;
-	uint8_t * head;
-	uint8_t * tail;
+	char * buffer;
+	char * head;
+	char * tail;
 	size_t num_items;
 	size_t length;
 }CircBuf_t;
@@ -26,7 +26,7 @@ void reset_CircBuf(CircBuf_t * buf);
 int8_t is_full_CircBuf(CircBuf_t * buf);
 
 // add an item to the tail of the circBuf
-void add_item_CircBuf(CircBuf_t * buf, uint8_t item);
+void add_item_CircBuf(CircBuf_t * buf, char item);
 
 // check if the CircBuf has and items in it
 uint8_t is_empty_CircBuf(CircBuf_t * buf);

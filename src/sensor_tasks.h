@@ -12,6 +12,11 @@
 
 /*	D E F I N E S   */
 #define STARTING_DISPLAY_BRIGHTNESS 	50	// initialize display to 50% brightness
+#define TMP_ADC_CHANNEL					9
+#define PC3_ADC_CHANNEL		13	// pin PC3 is channel 13
+#define BLE_MSG_SIZE		sizeof(BLE_Message_t);
+#define USE_BOTH_PHOTORESISTORS
+
 
 void prvRTC_Task(void *pvParameters);
 

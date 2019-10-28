@@ -27,13 +27,9 @@
 
 
 void init_adc(void);
-
 void calibrate_adc(void);
-
 void enable_adc(void);
-
 void disable_adc(void);
-
 uint32_t sample_adc(void);
 
 /* enables the VBAT channel

@@ -16,6 +16,7 @@
 #include "clocks.h"
 #include "usart.h"
 #include "i2c.h"
+#include "tmp36.h"
 #include "tubes.h"
 #include "pwm.h"
 #include "adc.h"
@@ -105,11 +106,16 @@ int main(void) {
 	init_error_led();
 	init_indication_led();
 	init_buttons();
-	init_i2c(SENSOR_I2C);
+	init_tmp();
 	init_usart(BLE_USART);
 	configure_shift_pins();
 	init_pwm();
 	init_adc();
+
+#ifdef USE_I2C
+	init_i2c(SENSOR_I2C);
+#endif
+
 	wake_up_hc_10();
 
 	/*   C R E A T E   T A S K S   */
@@ -120,7 +126,7 @@ int main(void) {
     BaseType_t configReturned = xTaskCreate(prvConfig_Task, "Config", configMINIMAL_STACK_SIZE, NULL, 3, &thConfig);
 
 	/* Priority 2 Tasks */
-//	BaseType_t tempReturned = xTaskCreate( prvTemperature_Task, "TempSensor", configMINIMAL_STACK_SIZE, NULL, 2, NULL);
+	BaseType_t tempReturned = xTaskCreate( prvTemperature_Task, "TempSensor", configMINIMAL_STACK_SIZE, NULL, 2, NULL);
 	BaseType_t Lightreturned = xTaskCreate( prvLight_Task, "LightSensor", configMINIMAL_STACK_SIZE, (void *)NULL, 2, &thAutoBrightAdj);
 	BaseType_t BLERXreturned = xTaskCreate( prvBLE_Receive_Task, "BLE RX", 300, (void *)NULL, 2, &thBLErx);
 	BaseType_t BLETXreturned = xTaskCreate( prvBLE_Send_Task, "BLE TX", 300, (void *)NULL, 2, &thBLEtx);
@@ -138,7 +144,8 @@ int main(void) {
 	/* check that tasks were created successfully */
 	configASSERT(rtcReturned == pdPASS);
 	configASSERT(sleepReturned == pdPASS);
-	configASSERT(configReturned = pdPASS);
+	configASSERT(configReturned == pdPASS);
+	configASSERT(tempReturned == pdPASS);
 	configASSERT(TempButtonreturned == pdPASS);
 	configASSERT(BLERXreturned == pdPASS);
 	configASSERT(BLETXreturned == pdPASS);
@@ -157,7 +164,6 @@ int main(void) {
     SysTick_Config(60000);
 
     // size_t free_heap_size = xPortGetFreeHeapSize();		// used to debug how big the heap needs to be
-
 
     // check HC-10 status to see if it has already connected to a device
     get_hc_10_status();

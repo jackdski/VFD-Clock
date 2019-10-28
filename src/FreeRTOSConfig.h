@@ -9,10 +9,10 @@
 #define FREERTOSCONFIG_H_
 
 #include <stdint.h>
-//extern uint32_t SystemCoreClock;
-
 #include "stm32f0xx_it.h"
 #include "stm32f091xc.h"
+
+#include "low_power.h"
 
 volatile unsigned long ulHighFrequencyTimerTicks; 	// for profiling Tasks
 
