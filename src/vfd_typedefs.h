@@ -75,6 +75,11 @@ typedef enum {
 	PM = 1
 } Midday_Clock_E;
 
+typedef enum {
+	Celsius = 0,
+	Fahrenheit = 1
+} Temperature_Type_E;
+
 typedef struct BLE_Message {
 	BLE_Message_Types_E message_type;
 	uint8_t	data_byte_one;

@@ -41,6 +41,10 @@ int8_t tmp_calculate_celsius_temperature(uint32_t mv) {
 	return ((mv - 500)/10);
 }
 
+int8_t c_to_f(int8_t celsius) {
+	return (((celsius * 9) / 5) + 32);
+}
+
 void tmp_enable_shutdown(void) {
 	TMP36_SHDW_PORT->ODR |= (1 << TMP36_SHDW_PIN);
 }

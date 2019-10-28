@@ -12,6 +12,7 @@
 
 void init_tmp(void);
 int8_t tmp_calculate_celsius_temperature(uint32_t mv);
+int8_t c_to_f(int8_t celsius);
 void tmp_enable_shutdown(void);
 void tmp_disable_shutdown(void);
 
