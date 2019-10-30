@@ -17,6 +17,7 @@
 #include "timers.h"
 
 /*	A P P L I C A T I O N   I N C L U D E S   */
+#include "main.h"
 #include "sensor_tasks.h"
 #include "vfd_typedefs.h"
 #include "circular_buffer.h"
@@ -442,8 +443,12 @@ void prvTurnOffTask(void *pvParameters) {
 	for( ;; ) {
 		thread_notification = ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
 		if(thread_notification != 0) {
-			configure_for_deepsleep();
-			__WFI();					// enter DeepSleep/Standby Mode
+			// make sure VBAT is available/has enough charge left before going to sleep
+			uint32_t vbat_measurement =  read_vbat_adc();
+			if(vbat_measurement > VBAT_MINIMUM) {
+				configure_for_deepsleep();
+				__WFI();	// enter DeepSleep/Standby Mode
+			}
 		}
 	}
 }

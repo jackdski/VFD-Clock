@@ -36,11 +36,11 @@ uint32_t sample_adc(void);
  * 	VBAT = 2 * conversion_value */
 void enable_vbat_adc(void);
 
-/* disables the VBAT channel */
-void disable_vbat_adc(void);
+
+void disable_vbat_adc(void); /* disables the VBAT channel */
 
 /* will take a sample of the VBAT channel */
-uint16_t read_vbat_adc(void);
+uint32_t read_vbat_adc(void);
 
 /* enables the internal Voltage Reference */
 void enable_vrefint_adc(void);

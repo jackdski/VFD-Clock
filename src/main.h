@@ -62,7 +62,7 @@
 #define I2C_AF					5
 #endif
 
-/* TMP36  */
+/* T M P 3 6  */
 #define	TMP36_OUT_PORT			GPIOB
 #define TMP36_OUT_PIN			1
 #define	TMP36_SHDW_PORT			GPIOB
@@ -91,6 +91,16 @@
 
 /*	L O W   P O W E R   */
 #define LP_TIMER				TIM1
+#define VBAT_MINIMUM			2120	// 1.7V in ADC
+
+/*	V B A T */
+#define VBAT_CHANNEL			18
+
+/*	E F U S E	*/
+#define EFUSE_EN_PORT			GPIOC
+#define EFUSE_EN_PIN			4
+#define EFUSE_NFLT_PORT			GPIOC
+#define EFUSE_NFLT_PIN			5
 
 #endif /* __MAIN_H */
 

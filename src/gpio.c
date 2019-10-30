@@ -13,6 +13,7 @@
 #include "timers.h"
 
 /*	A P P L I C A T I O N   I N C L U D E S   */
+#include "main.h"
 #include "gpio.h"
 #include "vfd_typedefs.h"
 #include "sensor_tasks.h"
@@ -278,17 +279,17 @@ void init_buttons(void) {
 }
 
 void init_efuse_pins(void) {
-	// EFUSE_FAULT			6	// PB6 - input.
-	// EFUSE_EN				7	// PB7 - output, active low, ~EN/OVLO
+	// EFUSE_nFAULT		PC5 - input.
+	// EFUSE_EN			PC4 - output, EN/OVLO
 
-	GPIOB->MODER &=    ~(GPIO_MODER_MODER6);	// PB6 to input
-	GPIOB->MODER |=     (GPIO_MODER_MODER7);	// PB7 to output
+	EFUSE_EN_PORT->MODER &= ~(GPIO_MODER_MODER4);			// output
+	EFUSE_NFLT_PORT->MODER |= (GPIO_MODER_MODER5);			// input
 
 	/* set output to low/enable */
-	GPIOB->ODR &= ~(GPIO_ODR_7);
+	EFUSE_EN_PORT->ODR &= ~(GPIO_ODR_7);
 
-	GPIOB->PUPDR &=    ~(GPIO_PUPDR_PUPDR6_0);	// set to pull-up
-	GPIOB->OTYPER &=   ~(GPIO_OTYPER_OT_7);		// set to push-pull
+	EFUSE_EN_PORT->PUPDR &=    ~(GPIO_PUPDR_PUPDR6_0);	// set to pull-up
+	EFUSE_EN_PORT->OTYPER &=   ~(GPIO_OTYPER_OT_7);		// set to push-pull
 
 #ifdef EFUSE_CURRENT_SENSE
 	// set ADC channel to read voltage on ILM current limit resistor
@@ -300,11 +301,11 @@ void init_efuse_pins(void) {
 	GPIOA->AFR[0] &=  ~(GPIO_AFRL_AFRL7); // AFRL (Ports 0-7)
 #endif
 
-	/* Configure PB6 EFUSE Fault interrupt */
-	SYSCFG->EXTICR[1] |= SYSCFG_EXTICR2_EXTI6_PB;	// external interrupt on PB[6]
-	EXTI->IMR |= EXTI_IMR_MR6; 		// select line 6 for PB6;
-	EXTI->RTSR |= EXTI_RTSR_TR4;	// enable rising trigger
-	EXTI->FTSR &= ~EXTI_FTSR_TR4; 	// disable falling trigger
+	/* Configure PC5 EFUSE Fault interrupt */
+	SYSCFG->EXTICR[1] |= SYSCFG_EXTICR2_EXTI5_PC;	// external interrupt on PB[5]
+	EXTI->IMR |= EXTI_IMR_MR5; 		// select line 5 for PC5;
+	EXTI->RTSR |= EXTI_RTSR_TR5;	// enable rising trigger
+	EXTI->FTSR &= ~EXTI_FTSR_TR5; 	// disable falling trigger
 }
 
 /*	L O W - P O W E R   */
@@ -544,6 +545,8 @@ void EXTI4_15_IRQHandler(void) {
 	//	MINUS_BUTTON_PIN	1	// PC1
 	//	DATE_BUTTON			4	// PB4
 	//	HC10_STATUS			8	// PA8 (EXTI-9)
+	// EFUSE_nFAULT		PC5 - input.
+	// EFUSE_EN			PC4 - output, EN/OVLO
 
 
 	/* Date button was pressed */
@@ -565,24 +568,36 @@ void EXTI4_15_IRQHandler(void) {
 	// 	MINUS_BUTTON_PIN	8	// PB8
 	//	DATE_BUTTON			12	// PB12
 	//	HC10_STATUS			8	// PA8 (EXTI-9)
+	// EFUSE_nFAULT			5	// PC5 - input
+
+	if(EXTI->PR & EXTI_PR_PR5) {
+		if(GPIOC->IDR & GPIO_IDR_5) {  // check if input is high
+			// eFuse Error Routine
+			efuse_status = Efuse_Error;				// prvError_LED will flash to indicate an error occured
+			EFUSE_EN_PORT->ODR &= ~EFUSE_EN_PIN;	// disable eFuse
+		}
+	}
 
 	/* '+' Button */
 	if(EXTI->PR & EXTI_PR_PR7) {
-		if(GPIOC->IDR & GPIO_IDR_0) {
+		if(GPIOB->IDR & GPIO_IDR_7) {
 			plus_button_status = Pressed;
 			EXTI->RTSR &= ~EXTI_RTSR_TR0;	// disable rising trigger
 			EXTI->FTSR |= EXTI_FTSR_TR0; 	// enable falling trigger
 			if(system_state == Config) {
-				/* disable 10s timer, increase minutes place */
-				/*+1 for every <3s hold, +5 for every >3s & <8s hold, +1hr every >8s hold */
+				/* +1 for every <3s hold,
+				 * +5 for every >3s & <8s hold,
+				 * +1hr every >8s hold */
 				BaseType_t xHigherPriorityTaskWoken = pdFALSE;
+
+				/* disable 10s timer, increase minutes place */
 				xTimerStop(ten_sec_timer, pdMS_TO_TICKS(500));	// stop timer, waiting max 500ms to execute
 				holds = 0;
 				change_speed = Slow;
 				xTimerStartFromISR(button_timer, &xHigherPriorityTaskWoken);
 			}
 		}
-		else if(!(GPIOC->IDR & GPIO_IDR_0)) {
+		else if(!(GPIOB->IDR & GPIO_IDR_7)) {
 			plus_button_status = Open;
 			EXTI->FTSR &= ~EXTI_FTSR_TR0; 	// disable falling trigger
 			EXTI->RTSR |= EXTI_RTSR_TR0;	// enable rising trigger
@@ -598,12 +613,12 @@ void EXTI4_15_IRQHandler(void) {
 
 	/* '-' Button */
 	if(EXTI->PR & EXTI_PR_PR8) {
-		if(GPIOC->IDR & GPIO_IDR_1) {
+		if(GPIOB->IDR & GPIO_IDR_8) {
 			minus_button_status = Pressed;
 			EXTI->RTSR &= ~EXTI_RTSR_TR1;	// disable rising trigger
 			EXTI->FTSR |= EXTI_FTSR_TR1; 	// enable falling trigger
 		}
-		else if(!(GPIOC->IDR & GPIO_IDR_1)) {
+		else if(!(GPIOB->IDR & GPIO_IDR_8)) {
 			minus_button_status = Open;
 			EXTI->FTSR &= ~EXTI_FTSR_TR1; 	// disable falling trigger
 			EXTI->RTSR |= EXTI_RTSR_TR1;	// enable rising trigger

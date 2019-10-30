@@ -114,7 +114,7 @@ void disable_vbat_adc(void) {
 }
 
 /* will take a sample of the VBAT channel */
-uint16_t read_vbat_adc(void) {
+uint32_t read_vbat_adc(void) {
 	// save the old config to write back later
 	uint32_t original_config = (ADC1->CFGR1 & (ADC_CFGR1_EXTEN | ADC_CFGR1_CONT));
 
@@ -122,7 +122,7 @@ uint16_t read_vbat_adc(void) {
 	ADC1->CFGR1 &= ~(ADC_CFGR1_EXTEN | ADC_CFGR1_CONT);
 	select_adc_channel(18);				// ADC input channel 18
 	ADC1->CR |= ADC_CR_ADSTART;			// trigger conversion
-	uint16_t r = read_adc();			// save the VBAT voltage sample
+	uint32_t r = read_adc();			// save the VBAT voltage sample
 	ADC1->CFGR1 |= original_config;		// rewrite the original config
 	return r * 2;						// double since VBAT reading is /2
 }
