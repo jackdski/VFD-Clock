@@ -45,13 +45,31 @@ void configure_for_deepsleep(void) {
 	uart_disable_peripheral();
 	i2c_disable_peripheral();
 	disable_adc();
+	efuse_disable();			// cut power to tubes, boost converter
+	update_time(0, 0, 0);		/* do not display anything on tubes */
+	configure_rtc_for_sleep();  // configure RTC for DeepSleep/Standby mode
+	vTaskEndScheduler();
+	configure_pwr_for_sleep();
+}
 
+
+void configure_for_stopmode(void) {
+	set_sleep_mode_hc_10(); 	// put HC-10 in sleep mode
+	uart_disable_peripheral();
+	i2c_disable_peripheral();
+	disable_adc();
+	efuse_disable();			// cut power to tubes, boost converter
 	update_time(0, 0, 0);		/* do not display anything on tubes */
 	configure_rtc_for_sleep();  // configure RTC for DeepSleep/Standby mode
 	vTaskEndScheduler();
 	configure_pwr_for_sleep();
 
+	// clear all EXTI Line Pending bits
+	EXTI->PR |= 0xFFFFFFFF;
+
 	SCB->SCR |= SCB_SCR_SLEEPDEEP_Msk;
+	PWR->CR &= ~PWR_CR_PDDS;
+	PWR->CR |= PWR_CR_LPDS;
 }
 
 

@@ -278,6 +278,7 @@ void init_buttons(void) {
 #endif
 }
 
+/*	E F U S E   */
 void init_efuse_pins(void) {
 	// EFUSE_nFAULT		PC5 - input.
 	// EFUSE_EN			PC4 - output, EN/OVLO
@@ -307,6 +308,15 @@ void init_efuse_pins(void) {
 	EXTI->RTSR |= EXTI_RTSR_TR5;	// enable rising trigger
 	EXTI->FTSR &= ~EXTI_FTSR_TR5; 	// disable falling trigger
 }
+
+void efuse_enable(void) {
+	EFUSE_EN_PORT->ODR |= EFUSE_EN_PIN;
+}
+
+void efuse_disable(void) {
+	EFUSE_EN_PORT->ODR &= ~EFUSE_EN_PIN;
+}
+
 
 /*	L O W - P O W E R   */
 void configure_gpio_for_low_power(void) {
@@ -574,7 +584,7 @@ void EXTI4_15_IRQHandler(void) {
 		if(GPIOC->IDR & GPIO_IDR_5) {  // check if input is high
 			// eFuse Error Routine
 			efuse_status = Efuse_Error;				// prvError_LED will flash to indicate an error occured
-			EFUSE_EN_PORT->ODR &= ~EFUSE_EN_PIN;	// disable eFuse
+			efuse_disable();
 		}
 	}
 

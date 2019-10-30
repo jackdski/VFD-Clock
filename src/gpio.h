@@ -10,17 +10,18 @@
 
 /* Configure PA5 and PA6 as outputs to blink LEDs */
 void init_error_led(void);
-
 void init_indication_led(void);
-
 void init_power_switch(void);
+
+void init_efuse_pins(void);
+void efuse_enable(void);
+void efuse_disable(void);
 
 /* toggle the output on the INDICATION LED */
 void toggle_indication_led(void);
 
 /* toggle the outputs on the ERROR LED */
 void toggle_error_led(void);
-
 void clear_error_led(void);
 
 /* toggle the outputs on the RTC LED */

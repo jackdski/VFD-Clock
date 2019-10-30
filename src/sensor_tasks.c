@@ -449,6 +449,11 @@ void prvTurnOffTask(void *pvParameters) {
 				configure_for_deepsleep();
 				__WFI();	// enter DeepSleep/Standby Mode
 			}
+			else {
+				configure_for_stopmode();
+				__WFI();	// enter Stop Mode
+
+			}
 		}
 	}
 }

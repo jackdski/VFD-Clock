@@ -84,9 +84,12 @@ int main(void) {
 		__WFI();  // enter DeepSleep/Standby Mode
     }
 
+    /* initially turn tubes off */
+    init_efuse_pins();
+    efuse_disable();
+
     /* check if device was set to Standby mode prior to running this code again
      	 if it was, use the time in the RTC registers */
-
 	RCC->APB1ENR |= RCC_APB1ENR_PWREN;  // enable PWR peripheral clock
 
 	/* device was woken up from Standby mode */
@@ -170,6 +173,8 @@ int main(void) {
     if( ble_status != Connected ) {
     	vTaskSuspend(thBLEtx);
     }
+
+    efuse_enable();  // turn display on
 
     /* start scheduler */
     vTaskStartScheduler();

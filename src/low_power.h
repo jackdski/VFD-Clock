@@ -20,6 +20,7 @@ void configure_rtc_for_sleep(void);
  * and the HSI, HSI48, HSI14 and HSE oscillators" and "SRAM and register
  * contents are lost except for registers in the RTC domain and Standby circuitry". */
 void configure_for_deepsleep(void);
+void configure_for_stopmode(void);
 
 /*	T I C K L E S S   I D L E   */
 void vApplicationSleep(TickType_t xExpectedIdleTime);
