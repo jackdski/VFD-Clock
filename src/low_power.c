@@ -9,12 +9,14 @@
 #include <stdint.h>
 
 /*	A P P L I C A T I O N   I N C L U D E S   */
-#include "low_power.h"
+//#include "low_power.h"
+#include "main.h"
 #include "usart.h"
 #include "rtc.h"
 #include "tubes.h"
 #include "i2c.h"
 #include "adc.h"
+#include "gpio.h"
 
 /*	F R E E R T O S   I N C L U D E S   */
 #include "FreeRTOS.h"

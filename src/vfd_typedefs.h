@@ -46,7 +46,8 @@ typedef enum {
 	Disconnected = 0,
 	Connected = 1,
 	Sleep = 2,
-	Waking_Up = 3
+	Waking_Up = 3,
+	Naming = 4
 } HC_10_Status_E;
 
 typedef enum {

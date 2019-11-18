@@ -40,7 +40,6 @@ extern CircBuf_t * RX_Buffer;
 // private variables
 static int8_t temperature = 1;	/* -128 - 127 deg C */
 
-
 /*	T A S K   H A N D L E S   */
 extern TaskHandle_t thRTC;
 extern TaskHandle_t thConfig;
@@ -269,6 +268,7 @@ void prvBLE_Receive_Task(void *pvParameters) {
 	/* strings that should be received */
 	static uint8_t wake_up_msg[] = "OK+WAKE";
 	static uint8_t sleep_msg[] = "OK+SLEEP";
+	static uint8_t name_msg[] = "OK+SetNAME";
 //	static uint8_t baud_one[] = "OK+Set:9600";
 
 	for( ;; ) {
@@ -287,6 +287,11 @@ void prvBLE_Receive_Task(void *pvParameters) {
 			/* capitalize message */
 			for(i = 0; i < n; i++) {
 				xRXMessage[i] = toupper(xRXMessage[i]);
+			}
+
+			// if in naming mode make sure things are proper
+			if(ble_status == Naming) {
+
 			}
 
 			/* if connected, determine see what to do with the rx'd message */
@@ -413,6 +418,7 @@ void prvBLE_Receive_Task(void *pvParameters) {
 				}
 				reset_CircBuf(RX_Buffer);
 			}
+
 			/* check if it is a response to an HC-10 command
 			 * status will not be Connected since the device will either be
 			 *   waking up or going to sleep */

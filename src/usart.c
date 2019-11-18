@@ -55,14 +55,13 @@ void init_usart(USART_TypeDef * USARTx) {
 						| (USART_CR1_M & 0) 	// 8-bit character length
 						| USART_CR1_PS);		// odd parity
 
-	USARTx->CR1 &= ~(USART_CR1_OVER8);		// oversample
+	USARTx->CR1 &= ~(USART_CR1_OVER8);			// oversample
 
 
 	/* Control Register 2 */
 	USARTx->CR2 |= (USART_CR2_STOP_Msk & 0);	// 1 stop bit
 
-	USARTx->CR2 &=  ~( USART_CR2_RTOEN		// disable receiver timeout
-						| USART_CR2_ABREN		// disable auto baud rate detection
+	USARTx->CR2 &=  ~(  USART_CR2_ABREN			// disable auto baud rate detection
 						| USART_CR2_MSBFIRST 	// LSB first
 						| USART_CR2_LINEN		// disable LIN mode
 						| USART_CR2_CLKEN);		// CK pin disabled
@@ -73,7 +72,7 @@ void init_usart(USART_TypeDef * USARTx) {
 						| (USART_CR3_WUS & 0x3)	// Wake up from Stop mode interrupt trigger on RXNE
 						| USART_CR3_OVRDIS); 		// disable Overrun detection
 
-	USARTx->CR3 &=  ~( USART_CR3_CTSE	// disable CTS
+	USARTx->CR3 &=  ~( USART_CR3_CTSE		// disable CTS
 						| USART_CR3_RTSE	// disable RTS
 						| USART_CR3_DMAT	// disable DMA transmitter
 						| USART_CR3_DMAR	// disable DMA receiver
@@ -81,6 +80,10 @@ void init_usart(USART_TypeDef * USARTx) {
 						| USART_CR3_HDSEL	// disable Half-Duplex selection
 						| USART_CR3_IREN	// disable IrDA
 						| USART_CR3_EIE);	// disable Error interrupt
+
+	/* Receiver Timeout */
+	USARTx->RTOR |= (11 * 2);  				// timeout = length of 2 messages
+	USARTx->CR2 |= USART_CR2_RTOEN;			// enable receiver timeout
 
 	USARTx->ICR = 0x0000;			/* clear interrupt flags */
 	BLE_USART->CR1 |=  USART_CR1_UE;	/* enable USART */
@@ -177,6 +180,10 @@ void wake_up_hc_10(void) {
 	uart_send_bytes(wake_up_text, 81);
 	ble_status = Waking_Up;
 	// should receive "OK+WAKE" back
+
+	// get name of the device
+	char name_string = "AT+NAME?";
+	ble_status = Naming;
 }
 
 void set_sleep_mode_hc_10(void) {
@@ -185,10 +192,20 @@ void set_sleep_mode_hc_10(void) {
 	// should receive "OK+SLEEP" back
 }
 
+void set_name_hc_10(char * name) {
+	char name_text[20] = "AT+NAME";
+	strcat(name_text, name);
+
+}
+
 void USART1_IRQHandler() {
-	/* if USART RX is not-empty, add to BLE/USART Queue */
+	/* if USART RX is not-empty, add to BLE/USART Circular Buffer */
 	if((USART1->ISR & USART_ISR_RXNE) == USART_ISR_RXNE){
 		add_item_CircBuf(RX_Buffer, (uint8_t)(USART1->RDR));
+	}
+
+	if(USART1->ISR & USART_ISR_RTOF) {
+		// task notification
 	}
 }
 

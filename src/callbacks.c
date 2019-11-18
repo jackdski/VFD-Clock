@@ -11,6 +11,7 @@
 #include "timers.h"
 
 /*	A P P L I C A T I O N   I N C L U D E S   */
+#include "main.h"
 #include "callbacks.h"
 #include "vfd_typedefs.h"
 #include "gpio.h"

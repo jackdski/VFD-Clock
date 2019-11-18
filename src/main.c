@@ -34,6 +34,7 @@ void vApplicationStackOverflowHook( TaskHandle_t pxTask, char *pcTaskName );
 void vPreSleepProcessing( uint32_t ulExpectedIdleTime );
 void vApplicationTickHook( void);
 void *malloc( size_t xSize );
+void config_peripherals(void);
 
 /* C I R C U L A R   B U F F E R S   */
 CircBuf_t * TX_Buffer;
@@ -62,15 +63,14 @@ volatile System_State_E system_state = Clock;
 //volatile int8_t temperature = 1;	/* -128 - 127 */
 volatile uint8_t holds = 0;
 
-
-Button_Status_E plus_button_status = Open;
-Button_Status_E minus_button_status = Open;
-Light_Flash_E indication_light_status = Off;
-Light_Flash_E error_light_status = Off;
-Time_Change_Speed_E change_speed = Slow;
-Time_Config_Options_E time_config = Reset;
-HC_10_Status_E ble_status = Disconnected;
-Efuse_Status_E efuse_status = Normal;
+volatile Button_Status_E plus_button_status = Open;
+volatile Button_Status_E minus_button_status = Open;
+volatile Light_Flash_E indication_light_status = Off;
+volatile Light_Flash_E error_light_status = Off;
+volatile Time_Change_Speed_E change_speed = Slow;
+volatile Time_Config_Options_E time_config = Reset;
+volatile HC_10_Status_E ble_status = Disconnected;
+volatile Efuse_Status_E efuse_status = Normal;
 
 
 /*	M A I N   */
@@ -103,17 +103,7 @@ int main(void) {
 	RX_Buffer = create_CircBuf(50);
 
 	/* initialize peripherals */
-	init_wwdg();
-	init_sysclock();
-	init_rtc();
-	init_error_led();
-	init_indication_led();
-	init_buttons();
-	init_tmp();
-	init_usart(BLE_USART);
-	configure_shift_pins();
-	init_pwm();
-	init_adc();
+	config_peripherals();
 
 #ifdef USE_I2C
 	init_i2c(SENSOR_I2C);
@@ -212,4 +202,18 @@ void vApplicationTickHook( void ) {
 
 void *malloc( size_t xSize ) {
     for( ;; );
+}
+
+void config_peripherals(void) {
+	init_wwdg();
+	init_sysclock();
+	init_rtc();
+	init_error_led();
+	init_indication_led();
+	init_buttons();
+	init_tmp();
+	init_usart(BLE_USART);
+	configure_shift_pins();
+	init_pwm();
+	init_adc();
 }
