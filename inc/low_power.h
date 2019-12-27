@@ -11,6 +11,8 @@
 #include "FreeRTOS.h"
 #include "portmacro.h"
 
+void prvTurnOffTask(void *pvParameters);
+
 /*	L O W - P O W E R   */
 void configure_pwr_for_sleep(void);
 void configure_rtc_for_sleep(void);

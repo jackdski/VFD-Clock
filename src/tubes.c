@@ -14,16 +14,15 @@
 #include "task.h"
 
 /*	A P P L I C A T I O N   I N C L U D E S   */
+#include "main.h"
+#include "tubes.h"
 #include "gpio.h"
 #include "vfd_typedefs.h"
-#include "tubes.h"
+#include "sensor_tasks.h"
 
 /*	G L O B A L   V A R I A B L E S   */
 extern System_State_E system_state;
-extern uint8_t hour;			/* 0-23 */
-extern uint8_t minutes;			/* 0-59 */
-extern uint8_t seconds;			/* 0-59 */
-extern int8_t temperature;		/* -128 - 127 */
+extern Settings_t settings;
 
 /*	D E F I N E S   */
 //#define	TUBE_TESTING		// only outputs 0xAA on tubes
@@ -45,6 +44,8 @@ extern int8_t temperature;		/* -128 - 127 */
 #define 	EIGHT       0b01111111; // 0x7F
 #define 	NINE        0b01101111; // 0x6F
 #define 	LETTER_F    0b01101011; // 0x##
+#define		LETTER_C	0b01111000; // 0x##
+#define		NEGATIVE	0b01000000; // 0x40
 #define 	DEGREES     0b01101011; // 0x6B
 
 #define ALL_TUBES	7
@@ -352,12 +353,86 @@ void update_time(uint8_t decHrs, uint8_t decMins, uint8_t decSecs) {
     srclr_latch_low();	// set latch (!SRCLR0) low again
 }
 
-/* updates the temperature to display '  ##oF  ' */
-void display_temperature(uint8_t temperature) {
-    uint8_t temperatureOne = dec_to_sev_seg(temperature / 10);
-    uint8_t temperatureTwo = dec_to_sev_seg(temperature % 10);
-    uint8_t degrees = DEGREES;
-    uint8_t letter_f = LETTER_F;
+/* updates the temperature to display:
+ * 	>99:  	'_###F_'
+ * 	<100: 	'__##F_'
+ * 	<10:  	'__#F__'
+ * 	<0:		'_-#F__'
+ * 	<-9:	'_-##F_'
+ * */
+void display_temperature(void) {
+	int8_t temperature = get_temperature();
+
+    uint8_t letter;
+    if(settings.temperature_units == Fahrenheit) {
+    	letter = LETTER_F;
+    }
+    else if(settings.temperature_units == Celsius) {
+    	letter = LETTER_C;
+    }
+
+	uint8_t display[6];
+
+	if(temperature > 99) {	// '_###F_' - positive 3 digit case
+	    display[0] = 0;
+	    display[3] = (temperature % 10);
+	    temperature = (temperature - display[3]) / 10;
+	    display[3] = dec_to_sev_seg(display[3]);
+
+	    display[2] = (temperature % 10);
+	    temperature = (temperature - display[2]) / 10;
+	    display[2] = dec_to_sev_seg(display[2]);
+
+	    display[1] = dec_to_sev_seg(temperature);
+
+	    display[4] = letter;
+	    display[5] = 0;
+	}
+	else if(temperature >= 10 && temperature <= 99) { // '__##F_', 10 to 99 range
+		display[0] = 0;
+		display[1] = 0;
+
+		display[3] = (temperature % 10);
+		temperature = (temperature - display[3]) / 10;
+		display[3] = dec_to_sev_seg(display[3]);
+
+		display[2] = dec_to_sev_seg(temperature);
+
+		display[4] = letter;
+		display[5] = 0;
+	}
+	else if(temperature >= 0 && temperature <= 9) { // '__#F__', 0 to 9 range
+		display[0] = 0;
+		display[1] = 0;
+		display[2] = dec_to_sev_seg(temperature);
+		display[3] = letter;
+		display[4] = 0;
+		display[5] = 0;
+	}
+	else if(temperature <= -1 && temperature >= -9) { // '_-#F__', -1 to -9 range
+		temperature *= -1;
+		display[0] = 0;
+		display[1] = NEGATIVE;
+		display[2] = dec_to_sev_seg(temperature);
+		display[3] = letter;
+		display[4] = 0;
+		display[5] = 0;
+	}
+	else if(temperature >= -10 && temperature <= -99) { // '_-##F_', 10 to 99 range
+		temperature *= -1;
+
+		display[0] = 0;
+		display[1] = NEGATIVE;
+
+		display[3] = (temperature % 10);
+		temperature = (temperature - display[3]) / 10;
+		display[3] = dec_to_sev_seg(display[3]);
+
+		display[2] = dec_to_sev_seg(temperature);
+
+		display[4] = letter;
+		display[5] = 0;
+	}
 
     srclr_latch_high();	// latch (!SRCLR), set high
 
@@ -365,12 +440,12 @@ void display_temperature(uint8_t temperature) {
     uint8_t i;
     for(i = 0; i < 8; i++) {
     	/* set pins high or low to set segment high or low */
-        assign_pin(1, (0 & (1 << i))); // (SER) for tube 1
-        assign_pin(2, (0 & (1 << i))); // (SER) for tube 2
-        assign_pin(3, (temperatureOne & (1 << i))); // (SER) for tube 3
-        assign_pin(4, (temperatureTwo & (1 << i))); // (SER) for tube 4
-        assign_pin(5, (degrees & (1 << i))); // (SER) for tube 5
-        assign_pin(6, (letter_f & (1 << i))); // (SER) for tube 6
+        assign_pin(1, (display[0] & (1 << i))); // (SER) for tube 1
+        assign_pin(2, (display[1] & (1 << i))); // (SER) for tube 2
+        assign_pin(3, (display[2] & (1 << i))); // (SER) for tube 3
+        assign_pin(4, (display[3] & (1 << i))); // (SER) for tube 4
+        assign_pin(5, (display[4] & (1 << i))); // (SER) for tube 5
+        assign_pin(6, (display[5] & (1 << i))); // (SER) for tube 6
 
         /* force shift */
         pulse_clock();

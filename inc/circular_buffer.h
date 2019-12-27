@@ -8,15 +8,17 @@
 #ifndef CIRCULAR_BUFFER_H_
 #define CIRCULAR_BUFFER_H_
 
+#include <stdint.h>
+
 typedef struct {
 	char * buffer;
 	char * head;
 	char * tail;
-	size_t num_items;
-	size_t length;
+	uint16_t num_items;
+	uint16_t length;
 }CircBuf_t;
 
-CircBuf_t * create_CircBuf(size_t length);
+CircBuf_t * create_CircBuf(uint16_t length);
 
 void delete_CircBuf(CircBuf_t * buf);
 

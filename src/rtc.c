@@ -15,15 +15,50 @@
 
 /*	A P P L I C A T I O N   I N C L U D E S   */
 #include "rtc.h"
+#include "main.h"
 #include "vfd_typedefs.h"
 #include "gpio.h"
+#include "tubes.h"
 
 /*	T A S K   H A N D L E S   */
 extern SemaphoreHandle_t sRTC;
 extern TaskHandle_t thRTC;
 
 /*	G L O B A L   V A R I A B L E S   */
-extern Time_Config_Options_E time_config;
+extern Settings_t settings;
+
+/*	T A S K S   */
+
+/* if given the semaphore by the RTC Interrupt Handler, read the time and update the tube display */
+void prvRTC_Task(void *pvParameters) {
+	static uint32_t thread_notification;
+	static uint8_t hours = 12;		/* 1-12*/
+	static uint8_t minutes = 0;		/* 0-59 */
+	static uint8_t seconds = 0;		/* 0-59 */
+//	static uint8_t ampm = PM;
+
+	/* if woken up from standby reset values */
+	if((uint32_t)pvParameters == Standby_Wakeup) {
+    	hours = read_rtc_hours();
+    	minutes = read_rtc_minutes();
+    	seconds = read_rtc_seconds();
+//    	ampm = read_rtc_ampm();
+	}
+
+    efuse_enable();  // turn display on
+
+	for( ;; ) {
+		thread_notification = ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
+		if(thread_notification != 0) {
+//			toggle_rtc_led();
+			hours = read_rtc_hours();
+			minutes = read_rtc_minutes();
+			seconds = read_rtc_seconds();
+			update_time(hours, minutes, seconds);	/* update tubes */
+		}
+	}
+}
+
 
 
 void init_rtc(void) {
@@ -53,7 +88,7 @@ void init_rtc(void) {
 	RTC->CR |= (RTC_CR_BYPSHAD | RTC_CR_ALRAIE);
 
 
-	if(time_config == Reset) {
+	if(settings.time_config == Reset) {
 		/* initialize time to 12:00:00 pm */
 //		RTC->TR |= RTC_TR_PM;  // set to PM
 //		RTC->TR = (1 & RTC_TR_HT) | (2 & RTC_TR_HU);

@@ -11,17 +11,42 @@
 /*	A P P L I C A T I O N   I N C L U D E S   */
 //#include "low_power.h"
 #include "main.h"
-#include "usart.h"
 #include "rtc.h"
 #include "tubes.h"
 #include "i2c.h"
 #include "adc.h"
 #include "gpio.h"
+#include "ble.h"
 
 /*	F R E E R T O S   I N C L U D E S   */
 #include "FreeRTOS.h"
 #include "task.h"
 
+
+/* This task will effectively reset the device when it is turned back on.
+ *  This mode "stops all the clocks in the core supply domain and disables
+ *  the PLL and the HSI, HSI48, HSI14 and HSE oscillators" and "SRAM and
+ *  register contents are lost except for registers in the RTC domain and
+ *  Standby circuitry". */
+void prvTurnOffTask(void *pvParameters) {
+	static uint32_t thread_notification;
+	for( ;; ) {
+		thread_notification = ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
+		if(thread_notification != 0) {
+			// make sure VBAT is available/has enough charge left before going to sleep
+			uint32_t vbat_measurement =  read_vbat_adc();
+			if(vbat_measurement > VBAT_MINIMUM) {
+				configure_for_deepsleep();
+				__WFI();	// enter DeepSleep/Standby Mode
+			}
+			else {
+				configure_for_stopmode();
+				__WFI();	// enter Stop Mode
+
+			}
+		}
+	}
+}
 
 /*	L O W - P O W E R   */
 void configure_pwr_for_sleep(void) {
@@ -43,8 +68,8 @@ void configure_rtc_for_sleep(void) {
  * 	ends FreeRTOS scheduler, and then sets the SCB->SCR bit to enter
  * 	the DeepSleep Low-Power Mode */
 void configure_for_deepsleep(void) {
-	set_sleep_mode_hc_10(); 	// put HC-10 in sleep mode
-	uart_disable_peripheral();
+	ble_set_sleep_mode_hc_10(); 	// put HC-10 in sleep mode
+	usart_disable_peripheral();
 	i2c_disable_peripheral();
 	disable_adc();
 	efuse_disable();			// cut power to tubes, boost converter
@@ -56,8 +81,8 @@ void configure_for_deepsleep(void) {
 
 
 void configure_for_stopmode(void) {
-	set_sleep_mode_hc_10(); 	// put HC-10 in sleep mode
-	uart_disable_peripheral();
+	ble_set_sleep_mode_hc_10(); 	// put HC-10 in sleep mode
+	usart_disable_peripheral();
 	i2c_disable_peripheral();
 	disable_adc();
 	efuse_disable();			// cut power to tubes, boost converter

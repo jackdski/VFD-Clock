@@ -12,7 +12,7 @@
 #include "stm32f0xx_it.h"
 #include "stm32f091xc.h"
 
-#include "low_power.h"
+#include "../inc/low_power.h"
 
 volatile unsigned long ulHighFrequencyTimerTicks; 	// for profiling Tasks
 

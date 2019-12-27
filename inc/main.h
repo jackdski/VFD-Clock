@@ -43,20 +43,16 @@
 #include "stm32f0xx_hal.h"
 #include "stm32f0xx_nucleo.h"
 
-//#include "adc.h"
-//#include "callbacks.h"
-//#include "circular_buffer.h"
-//#include "clocks.h"
-//#include "gpio.h"
-//#include "i2c.h"
-//#include "low_power.h"
-//#include "pwm.h"
-//#include "rtc.h"
-//#include "sensor_tasks.h"
-//#include "tmp36.h"
-//#include "tubes.h"
-//#include "usart.h"
-//#include "vfd_typedefs.h"
+#include "vfd_typedefs.h"
+
+typedef struct {
+	uint8_t starting_brightness;
+	uint16_t brightness_pwm_frequency;
+	volatile Time_Change_Speed_E change_speed;
+	volatile Time_Config_Options_E time_config;
+	Temperature_Type_E temperature_units;
+} Settings_t;
+
 
 /*	P R O F I L E R   */
 #define PROFILER_TIMER			TIM3

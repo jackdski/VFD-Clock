@@ -59,7 +59,7 @@ void shift_out(uint8_t tubeNumber, uint8_t val);
 void update_time(uint8_t decHrs, uint8_t decMins, uint8_t decSecs);
 
 /* displays the temperature '  ##oF  ' */
-void display_temperature(uint8_t temperature);
+void display_temperature(void);
 
 /* displays the date 'MM  DD' */
 void display_date(void);

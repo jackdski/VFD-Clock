@@ -10,7 +10,7 @@
 
 /*	A P P L I C A T I O N   I N C L U D E S   */
 #include "clocks.h"
-#include "usart.h"
+#include "ble.h"
 
 /*	G L O B A L   V A R I A B L E S   */
 extern unsigned long ulHighFrequencyTimerTicks;
@@ -107,8 +107,7 @@ void init_wwdg(void) {
 
 void WWDG_IRQHandler(void) {
 	if(WWDG->CFR & WWDG_CFR_EWI) {
-		char * error_str = "ERROR OCCURED";
-		uart_send_bytes(error_str, 14);
+		ble_write("ERROR OCCURED\n");
 	}
 	WWDG->SR &= ~(WWDG_SR_EWIF);  // clear EWI flag
 }

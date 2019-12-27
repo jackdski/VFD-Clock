@@ -19,13 +19,14 @@
 #include "sensor_tasks.h"
 #include "tubes.h"
 #include "callbacks.h"
+#include "ble.h"
 
 /*	T A S K   H A N D L E S   */
 extern TaskHandle_t thRTC;
 extern TaskHandle_t thOff;
 extern TaskHandle_t thBLErx;
 extern TaskHandle_t thBLEtx;
-extern TaskHandle_t thTemperatureButton;
+extern TaskHandle_t thTemperature;
 
 /*	G L O B A L   V A R I A B L E S   */
 extern System_State_E system_state;
@@ -41,15 +42,22 @@ extern TimerHandle_t five_sec_timer;
 extern TimerHandle_t ten_sec_timer;
 extern TimerHandle_t button_timer;
 
-extern Button_Status_E plus_button_status;
-extern Button_Status_E minus_button_status;
-extern Light_Flash_E indication_light_status;
-extern Light_Flash_E error_light_status;
-extern Time_Change_Speed_E change_speed;
+extern Settings_t settings;
 extern HC_10_Status_E ble_status;
 extern Efuse_Status_E efuse_status;
 
 extern uint8_t holds;
+
+
+/*	P R I V A T E   V A R I A B L E S   */
+static volatile Light_Flash_E error_light_status = Off;
+static volatile Light_Flash_E indication_light_status = Off;
+
+static volatile Button_Status_E plus_button_status = Open;
+static volatile Button_Status_E minus_button_status = Open;
+static volatile Power_Switch_status_E power_switch_status = System_On;
+
+
 
 //#define		EFUSE_CURRENT_SENSE
 
@@ -87,7 +95,7 @@ extern uint8_t holds;
 #define		EFUSE_EN			7	// PB7 - output
 
 
-/*	I N I T S   */
+/*	L E D S   */
 
 /* ERROR LED
  * 	Demo - PA0
@@ -108,6 +116,10 @@ void init_error_led(void) {
 #endif
 }
 
+void set_error_led_status(Light_Flash_E status) {
+	error_light_status = status;
+}
+
 /* Indicator LED
  * 	Demo - PA5
  * 	Else - PC8
@@ -126,10 +138,25 @@ void init_indication_led(void) {
 #endif
 }
 
+void set_indication_led_status(Light_Flash_E status) {
+	indication_light_status = status;
+}
+
+
+/*	S W I T C H E S / B U T T O N S   */
 void init_power_switch(void) {
 	RCC->AHBENR |= RCC_AHBENR_GPIOCEN;
 	GPIOC->MODER &= ~( GPIO_MODER_MODER13);
 	GPIOC->PUPDR |= GPIO_PUPDR_PUPDR13_0;
+}
+
+Power_Switch_status_E get_power_switch_status(void) {
+	if((GPIOC->IDR & (1 << 13)) == 13) {
+		return System_Off;
+	}
+	else {
+		return System_On;
+	}
 }
 
 /* configures buttons */
@@ -388,17 +415,17 @@ uint8_t inline read_power_switch(void) {
 /* 	Low = Unconnected output
 * 	High = Connected output
 * 	Suspends or resumes TX task based on ble_status */
-void get_hc_10_status(void) {
+void update_hc_10_status(void) {
 	if(GPIOA->IDR & GPIO_IDR_8) {	// connected
-		ble_status = Connected;
+		ble_set_hc_10_status(Connected);
 		vTaskResume(thBLEtx);
 	}
 	else {
 		if(!(GPIOA->IDR & GPIO_IDR_8)) {
-			ble_status = Disconnected;
+			ble_set_hc_10_status(Disconnected);
 			}
 		else {
-			ble_status = BLE_Error;
+			ble_set_hc_10_status(BLE_Error);
 		}
 
 		// suspend task if not already suspended
@@ -407,6 +434,17 @@ void get_hc_10_status(void) {
 		}
 	}
 }
+
+/*	G E N E R A L   */
+Button_Status_E get_plus_button_status(void) {
+	return plus_button_status;
+}
+
+Button_Status_E get_minus_button_status(void) {
+	return minus_button_status;
+}
+
+
 
 /*   T A S K S   */
 
@@ -445,7 +483,7 @@ void prvError_LED(void * pvParameters) {
 				toggle_error_led();
 				vTaskDelay(delay_time_efuse);
 			}
-			else if(ble_status == BLE_Error) {
+			else if(ble_get_hc_10_status() == BLE_Error) {
 				toggle_error_led();
 				vTaskDelay(delay_time_ble);
 			}
@@ -455,9 +493,6 @@ void prvError_LED(void * pvParameters) {
 		}
 	}
 }
-
-/*	G E N E R A L   */
-
 
 
 /*	I N T E R R U P T S   */
@@ -479,7 +514,7 @@ void EXTI0_1_IRQHandler(void) {
 				BaseType_t xHigherPriorityTaskWoken = pdFALSE;
 				xTimerStop(ten_sec_timer, pdMS_TO_TICKS(500));	// stop timer, waiting max 500ms to execute
 				holds = 0;
-				change_speed = Slow;
+				settings.change_speed = Slow;
 				xTimerStartFromISR(button_timer, &xHigherPriorityTaskWoken);
 			}
 		}
@@ -537,8 +572,8 @@ void EXTI2_3_IRQHandler(void) {
 			/* use 5s timer to display the temperature, suspend the RTC update display task */
 			vTaskSuspend(thRTC);
 			BaseType_t xHigherPriorityTaskWoken = pdFALSE;
-			configASSERT(thTemperatureButton != NULL);
-			vTaskNotifyGiveFromISR(thTemperatureButton, &xHigherPriorityTaskWoken );
+			configASSERT(thTemperature != NULL);
+			vTaskNotifyGiveFromISR(thTemperature, &xHigherPriorityTaskWoken );
 			system_state = Button_Temperature;
 			xTimerStartFromISR( five_sec_timer, &xHigherPriorityTaskWoken );
 			portYIELD_FROM_ISR( xHigherPriorityTaskWoken );
@@ -603,7 +638,7 @@ void EXTI4_15_IRQHandler(void) {
 				/* disable 10s timer, increase minutes place */
 				xTimerStop(ten_sec_timer, pdMS_TO_TICKS(500));	// stop timer, waiting max 500ms to execute
 				holds = 0;
-				change_speed = Slow;
+				settings.change_speed = Slow;
 				xTimerStartFromISR(button_timer, &xHigherPriorityTaskWoken);
 			}
 		}
@@ -660,7 +695,7 @@ void EXTI4_15_IRQHandler(void) {
 
 	/* HC-10 Status change */
 	if(EXTI->PR & EXTI_PR_PR9) {
-		get_hc_10_status();
+		update_hc_10_status();
 		EXTI->PR |= EXTI_PR_PR9;
 	}
 
@@ -668,12 +703,14 @@ void EXTI4_15_IRQHandler(void) {
 	if(EXTI->PR & EXTI_PR_PR13) {
 		/* on/off switch needs to be active high */
 		if(GPIOC->IDR & GPIO_IDR_13) {
+			power_switch_status = System_On;
 			EXTI->PR |= EXTI_PR_PR13;		// clear interrupt
 			EXTI->RTSR |= EXTI_RTSR_TR13;	// enable rising trigger
 			EXTI->FTSR &= ~EXTI_FTSR_TR13; 	// disable falling trigger
 			system_state = Clock;
 		}
 		if(!(GPIOC->IDR & GPIO_IDR_13)) {
+			power_switch_status = System_Off;
 			BaseType_t xHigherPriorityTaskWoken = pdFALSE;
 			EXTI->RTSR &= ~EXTI_RTSR_TR13;	// disable rising trigger
 			EXTI->FTSR |= EXTI_FTSR_TR13; 	// enable falling trigger

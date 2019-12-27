@@ -34,12 +34,8 @@ extern TimerHandle_t three_sec_timer;
 extern TimerHandle_t five_sec_timer;
 extern TimerHandle_t ten_sec_timer;
 
-extern Button_Status_E plus_button_status;
-extern Button_Status_E minus_button_status;
-extern Light_Flash_E indication_light_status;
 extern uint8_t holds;
-extern Time_Change_Speed_E change_speed;
-
+extern Settings_t settings;
 
 /*	T I M E R   C A L L B A C K S   */
 
@@ -50,7 +46,7 @@ void three_sec_timer_callback(TimerHandle_t xTimer) {
 
 	if(system_state != Config) {
 		// break since buttons weren't pressed long enough
-		if((plus_button_status != Pressed) || (minus_button_status != Pressed)) {
+		if((get_plus_button_status() != Pressed) || (get_minus_button_status() != Pressed)) {
 			xTimerStop(three_sec_timer, pdMS_TO_TICKS(500));	// stop timer, waiting max 500ms to execute
 			config_timer_callback_count = 0;					// reset counter
 		}
@@ -61,7 +57,7 @@ void three_sec_timer_callback(TimerHandle_t xTimer) {
 				xTimerStop(three_sec_timer, pdMS_TO_TICKS(500));	// stop timer, waiting max 500ms to execute
 				config_timer_callback_count = 0;
 				system_state = Config;
-				indication_light_status = Flashing;
+				set_indication_led_status(Flashing);
 				BaseType_t xHigherPriorityTaskWoken = pdFALSE;
 				xTimerStartFromISR(ten_sec_timer, &xHigherPriorityTaskWoken);
 				vTaskSuspend(thRTC);
@@ -81,7 +77,7 @@ void five_sec_timer_callback(TimerHandle_t xTimer) {
 	uint8_t seconds = read_rtc_seconds();
 	update_time(hours, minutes, seconds);	// show time on display again
 	vTaskResume(thRTC);
-	indication_light_status = Flashing;
+	set_indication_led_status(Flashing);
 }
 
 /* call back function for the software timer created to leave Config mode
@@ -91,7 +87,7 @@ void ten_sec_timer_callback(TimerHandle_t xTimer) {
 	// disable 2Hz display flashing and resume normal clock operations
 	vTaskSuspend(thConfig);
 	vTaskResume(thRTC);
-	indication_light_status = Flashing;	// trigger flashes
+	set_indication_led_status(Flashing);	// trigger flashes
 }
 
 /* call back function for the 50ms software timer created to count
@@ -102,23 +98,23 @@ void ten_sec_timer_callback(TimerHandle_t xTimer) {
 	// make sure one of the buttons is still pressed
 	if(!(read_plus_button()) || !(read_plus_button())) {
 		holds = 0;
-		change_speed = Slow;
+		settings.change_speed = Slow;
 		return;
 	}
 	// if a button is pressed, increase time accordingly
 	else {
 		holds++;
 		switch(holds) {
-			case 60: change_speed = Quick; break;
-			case 160: change_speed = Fast; break;
+			case 60: settings.change_speed = Quick; break;
+			case 160: settings.change_speed = Fast; break;
 			default: break;
 		}
 
-		if((change_speed == Slow) && (holds % 20 == 0))			// increase every (20 * 50ms) = 1s
+		if((settings.change_speed == Slow) && (holds % 20 == 0))			// increase every (20 * 50ms) = 1s
 			increase_minutes(1);
-		else if((change_speed == Quick) && (holds % 7 == 0)) 	// increase every (7 * 50ms) = 0.35s
+		else if((settings.change_speed == Quick) && (holds % 7 == 0)) 	// increase every (7 * 50ms) = 0.35s
 			increase_minutes(10);
-		else if(change_speed == Fast && (holds % 20 == 0))		// increase every (20 * 50ms) = 1s
+		else if(settings.change_speed == Fast && (holds % 20 == 0))		// increase every (20 * 50ms) = 1s
 			increase_hours();
 	}
 }

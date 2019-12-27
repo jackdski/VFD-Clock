@@ -47,13 +47,19 @@ typedef enum {
 	Connected = 1,
 	Sleep = 2,
 	Waking_Up = 3,
-	Naming = 4
+	Set_Name = 4,
+	Get_Name = 5
 } HC_10_Status_E;
 
 typedef enum {
 	Open = 0,
 	Pressed = 1
 } Button_Status_E;
+
+typedef enum {
+	System_On = 0,
+	System_Off = 1
+} Power_Switch_status_E;
 
 typedef enum {
 	Off = 0,

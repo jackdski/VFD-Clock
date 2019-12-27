@@ -10,6 +10,7 @@
 
 //#define DEMO
 #define	MAX_ADC_READ			180
+#define USE_BOTH_PHOTORESISTORS
 
 #ifdef	DEMO
 #define	PHOTORESISTOR_LEFT		6	// PC6 - AF0, CH6
@@ -25,6 +26,7 @@
 #define RANGE_THRESHOLD_3	40
 #define RANGE_THRESHOLD_4	70
 
+void prvLight_Task(void *pvParameters);
 
 void init_adc(void);
 void calibrate_adc(void);

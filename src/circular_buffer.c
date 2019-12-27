@@ -6,6 +6,8 @@
  */
 
 /*	D E V I C E   I N C L U D E S   */
+#include "../inc/circular_buffer.h"
+
 #include "stm32f091xc.h"
 #include <stdint.h>
 #include <stdlib.h>
@@ -16,13 +18,12 @@
 #include "FreeRTOS.h"
 
 /*	A P P L I C A T I O N   I N C L U D E S   */
-#include "circular_buffer.h"
 
 
 // remember to use pvPortMalloc() instead of malloc()
 // 		and vPortFree() instead of free()
 
-CircBuf_t * create_CircBuf(size_t length) {
+CircBuf_t * create_CircBuf(uint16_t length) {
 	if(length > 0) {
 		CircBuf_t * temp = pvPortMalloc(sizeof(CircBuf_t));
 		if(!temp)
@@ -94,7 +95,7 @@ void load_str_to_CircBuf(CircBuf_t * buf, char * string, uint8_t length){
     if(!buf || !string ) {
         return;
     }
-    add_item_CircBuf(buf, strlen(string));
+//    add_item_CircBuf(buf, strlen(string));
 
     volatile uint8_t i;
     for(i = 0; i<length; i++){

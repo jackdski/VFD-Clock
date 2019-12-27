@@ -20,6 +20,43 @@
 #include "tubes.h"
 #include "adc.h"
 
+
+static uint32_t target_brightness;
+
+
+/* task is resumed in prvLight_Task after it is determined that the
+ * display brightness should change. This task alters the duty cycle
+ * by +/-1% every 50ms and should be configured as a low-priority task */
+void prvChange_Brightness_Task(void *pvParameters) {
+	static TickType_t delay_time = pdMS_TO_TICKS( 50 );		// 50ms
+	static uint16_t display_brightness = STARTING_DISPLAY_BRIGHTNESS;
+
+	/* change display_brightness if parameter was passed into task function */
+	if((uint32_t)pvParameters <= 100) {
+		display_brightness = (uint16_t)(uint32_t)pvParameters;
+	}
+
+	for( ;; ) {
+//		display_brightness = (TIM14->CCR1 * 100) / (uint16_t)PWM_FREQUENCY;
+		display_brightness = get_pwm_duty_cycle();
+		if(display_brightness == target_brightness) {
+		     vTaskSuspend( NULL );	// suspend this task
+		}
+		if(display_brightness != target_brightness) {
+			if(display_brightness > target_brightness)
+				display_brightness -= 1;
+			else if(display_brightness < target_brightness)
+				display_brightness += 1;
+			change_pwm_duty_cycle(display_brightness);
+		}
+		vTaskDelay(delay_time);
+	}
+}
+
+void set_target_brightness(uint32_t setting) {
+	target_brightness = setting;
+}
+
 /*	P W M   */
 void init_pwm(void) {
 	/* Info:

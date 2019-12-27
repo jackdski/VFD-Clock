@@ -15,8 +15,40 @@
 
 /*	A P P L I C A T I O N   I N C L U D E S   */
 #include "adc.h"
+#include "pwm.h"
 
 /*	G L O B A L   V A R I A B L E S   */
+extern TaskHandle_t thBrightness_Adj;
+
+
+/* updates the light_value private variable every 5 seconds
+ * so that the prvChangePWM task changes the brightness */
+void prvLight_Task(void *pvParameters) {
+	static TickType_t delay_time = pdMS_TO_TICKS( 2000 ); // 5s
+	static uint32_t light_value = 200;
+	static uint32_t light_sample;
+	static uint32_t light_sample_two;
+	for( ;; ) {
+		vTaskDelay(delay_time);	// 1s
+		select_adc_channel(PHOTORESISTOR_LEFT);
+		light_sample = sample_adc();
+
+#ifdef USE_BOTH_PHOTORESISTORS
+		select_adc_channel(PHOTORESISTOR_RIGHT);
+		light_sample_two = sample_adc();
+		light_sample = (light_sample + light_sample_two) / 2;
+#endif
+		/* check if ADC conversions are close enough to trust */
+		if(is_good_light_data(light_sample, light_sample_two)) {
+			/* if in a new range now */
+			if(in_diff_light_range(light_value, light_sample) == 1) {
+				set_target_brightness(calc_new_brightness(light_sample));
+				vTaskResume( thBrightness_Adj );
+			}
+			light_value = light_sample;
+		}
+	}
+}
 
 /*	F U N C T I O N S   */
 

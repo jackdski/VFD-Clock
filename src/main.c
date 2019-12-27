@@ -14,7 +14,7 @@
 #include "circular_buffer.h"
 #include "gpio.h"
 #include "clocks.h"
-#include "usart.h"
+#include "ble.h"
 #include "i2c.h"
 #include "tmp36.h"
 #include "tubes.h"
@@ -25,7 +25,11 @@
 #include "low_power.h"
 
 /*	D E F I N E S   */
-#define STARTING_DISPLAY_BRIGHTNESS 	50	// initialize display to 50% brightness
+//#define STARTING_DISPLAY_BRIGHTNESS 	50	// initialize display to 50% brightness
+
+
+/* I N I T   T A S K   */
+void prvInitTask(void *pvParameters);
 
 /*	F R E E R T O S   H O O K S   */
 void vApplicationMallocFailedHook( void );
@@ -36,11 +40,10 @@ void vApplicationTickHook( void);
 void *malloc( size_t xSize );
 void config_peripherals(void);
 
-/* C I R C U L A R   B U F F E R S   */
-CircBuf_t * TX_Buffer;
-CircBuf_t * RX_Buffer;
+
 
 /*	T A S K   H A N D L E S   */
+TaskHandle_t thInit = NULL;
 TaskHandle_t thRTC = NULL;
 TaskHandle_t thOff = NULL;
 TaskHandle_t thConfig = NULL;
@@ -49,7 +52,7 @@ TaskHandle_t thAutoBrightAdj = NULL;
 TaskHandle_t thErrorLED = NULL;
 TaskHandle_t thBLErx = NULL;
 TaskHandle_t thBLEtx = NULL;
-TaskHandle_t thTemperatureButton = NULL;
+TaskHandle_t thTemperature = NULL;
 
 /* S O F T W A R E   T I M E R S   */
 TimerHandle_t three_sec_timer = NULL;
@@ -58,18 +61,16 @@ TimerHandle_t ten_sec_timer = NULL;
 TimerHandle_t button_timer = NULL;
 
 /*	G L O B A L   V A R I A B L E S   */
+Settings_t settings = {
+		.starting_brightness = 50,
+		.brightness_pwm_frequency = 200, // [Hz]
+		.change_speed = Slow,
+		.time_config = Reset,
+
+};
+
 volatile System_State_E system_state = Clock;
-
-//volatile int8_t temperature = 1;	/* -128 - 127 */
 volatile uint8_t holds = 0;
-
-volatile Button_Status_E plus_button_status = Open;
-volatile Button_Status_E minus_button_status = Open;
-volatile Light_Flash_E indication_light_status = Off;
-volatile Light_Flash_E error_light_status = Off;
-volatile Time_Change_Speed_E change_speed = Slow;
-volatile Time_Config_Options_E time_config = Reset;
-volatile HC_10_Status_E ble_status = Disconnected;
 volatile Efuse_Status_E efuse_status = Normal;
 
 
@@ -79,7 +80,7 @@ int main(void) {
 
     /* check on/off switch position before initializing and starting scheduler,
      * should only happen the first time the device is powered up */
-    if((GPIOC->IDR & (1 << 13)) == 13) {
+    if(get_power_switch_status() == System_Off) {
 		configure_for_deepsleep();
 		__WFI();  // enter DeepSleep/Standby Mode
     }
@@ -95,13 +96,22 @@ int main(void) {
 	/* device was woken up from Standby mode */
     if(PWR->CSR & PWR_CSR_WUF) {
     	init_indication_led();
-    	time_config = Standby_Wakeup;
+    	settings.time_config = Standby_Wakeup;
     }
 
-	/* create circular buffers for BLE messages */
-	TX_Buffer = create_CircBuf(50);
-	RX_Buffer = create_CircBuf(50);
+    /* initialize SysTick timer to 10ms ticks */
+    SysTick_Config(60000);
 
+	BaseType_t InitReturned = xTaskCreate(prvInitTask, "InitTask", configMINIMAL_STACK_SIZE, NULL, 1, &thInit);
+	configASSERT(InitReturned == pdPASS);
+
+    /* start scheduler */
+    vTaskStartScheduler();
+    for( ;; );
+}
+
+
+void prvInitTask(void *pvParameters) {
 	/* initialize peripherals */
 	config_peripherals();
 
@@ -109,12 +119,10 @@ int main(void) {
 	init_i2c(SENSOR_I2C);
 #endif
 
-	wake_up_hc_10();
-
 	/*   C R E A T E   T A S K S   */
 
     /* Priority 3 Tasks */
-	BaseType_t rtcReturned = xTaskCreate(prvRTC_Task, "RTC", configMINIMAL_STACK_SIZE, (void *) time_config, 3, &thRTC);
+	BaseType_t rtcReturned = xTaskCreate(prvRTC_Task, "RTC", configMINIMAL_STACK_SIZE, (void *)settings.time_config, 3, &thRTC);
 	BaseType_t sleepReturned = xTaskCreate(prvTurnOffTask, "Turn Off", configMINIMAL_STACK_SIZE, NULL, 3, &thOff);
     BaseType_t configReturned = xTaskCreate(prvConfig_Task, "Config", configMINIMAL_STACK_SIZE, NULL, 3, &thConfig);
 
@@ -122,11 +130,10 @@ int main(void) {
 	BaseType_t tempReturned = xTaskCreate( prvTemperature_Task, "TempSensor", configMINIMAL_STACK_SIZE, NULL, 2, NULL);
 	BaseType_t Lightreturned = xTaskCreate( prvLight_Task, "LightSensor", configMINIMAL_STACK_SIZE, (void *)NULL, 2, &thAutoBrightAdj);
 	BaseType_t BLERXreturned = xTaskCreate( prvBLE_Receive_Task, "BLE RX", 300, (void *)NULL, 2, &thBLErx);
-	BaseType_t BLETXreturned = xTaskCreate( prvBLE_Send_Task, "BLE TX", 300, (void *)NULL, 2, &thBLEtx);
-	BaseType_t TempButtonreturned = xTaskCreate( prvTemperature_Task, "Temp Button", configMINIMAL_STACK_SIZE, (void *)(Fahrenheit), 2, &thTemperatureButton);
+	BaseType_t TempButtonreturned = xTaskCreate( prvTemperature_Task, "Temp Button", configMINIMAL_STACK_SIZE, (void *)(Fahrenheit), 2, &thTemperature);
 
 	/* Priority 1 Tasks*/
-	BaseType_t brightnessReturned = xTaskCreate( prvChange_Brightness_Task, "BrightnessAdj", configMINIMAL_STACK_SIZE, (void *)STARTING_DISPLAY_BRIGHTNESS, 1, &thBrightness_Adj);
+	BaseType_t brightnessReturned = xTaskCreate( prvChange_Brightness_Task, "BrightnessAdj", configMINIMAL_STACK_SIZE, &settings.starting_brightness, 1, &thBrightness_Adj);
 	BaseType_t errorLightReturned = xTaskCreate( prvError_LED, "ErrorLED", configMINIMAL_STACK_SIZE, (void *)NULL, 1, NULL);
 	BaseType_t blinkyReturned = xTaskCreate( prvIndication_LED, "Blinky", configMINIMAL_STACK_SIZE, (void *)NULL, 1, &thErrorLED);
 
@@ -141,7 +148,6 @@ int main(void) {
 	configASSERT(tempReturned == pdPASS);
 	configASSERT(TempButtonreturned == pdPASS);
 	configASSERT(BLERXreturned == pdPASS);
-	configASSERT(BLETXreturned == pdPASS);
 	configASSERT(Lightreturned == pdPASS);
 	configASSERT(brightnessReturned == pdPASS);
 	configASSERT(errorLightReturned == pdPASS);
@@ -153,23 +159,17 @@ int main(void) {
     ten_sec_timer = xTimerCreate("10s Timer", pdMS_TO_TICKS(10000), pdFALSE, 0, ten_sec_timer_callback);
 	button_timer = xTimerCreate("Button Timer", pdMS_TO_TICKS(50), pdTRUE, 0, button_timer_callback);
 
-    /* initialize SysTick timer to 10ms ticks */
-    SysTick_Config(60000);
-
     // size_t free_heap_size = xPortGetFreeHeapSize();		// used to debug how big the heap needs to be
 
     // check HC-10 status to see if it has already connected to a device
-    get_hc_10_status();
-    if( ble_status != Connected ) {
+    update_hc_10_status();
+    if(ble_get_hc_10_status() != Connected ) {
     	vTaskSuspend(thBLEtx);
     }
 
-    efuse_enable();  // turn display on
-
-    /* start scheduler */
-    vTaskStartScheduler();
-    for( ;; );
+    vTaskDelete(thInit);
 }
+
 
 void vApplicationMallocFailedHook( void )
 {
