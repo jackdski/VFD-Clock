@@ -26,12 +26,17 @@ extern CircBuf_t * TX_Buffer;
 extern CircBuf_t * RX_Buffer;
 extern HC_10_Status_E ble_status;
 
+/*	P R I V A T E   V A R I A B L E S   */
+static eUSART_State_Machine usart_state_machine = Idle;
+
 //#define 	USART1_TX	9	// PA9
 //#define		USART1_RX	10	// PA10
 //#define		HC10_STATUS	8	// PA8
 
 /*	U A R T   F U N C T I O N S   */
 void init_usart(USART_TypeDef * USARTx) {
+	usart_state_machine = Initializing;
+
 	/* disable USART */
 	USARTx->CR1 &=  ~(USART_CR1_UE);	// disable USART
 
@@ -117,6 +122,7 @@ void init_usart(USART_TypeDef * USARTx) {
 
 	NVIC_SetPriority(EXTI4_15_IRQn, 1);
 #endif
+	usart_state_machine = Initializing;
 }
 
 void inline uart_disable_peripheral(void) {
@@ -132,12 +138,6 @@ void uart_send_bytes(char * str, uint8_t len) {
 	uint8_t i;
 	for(i = 0; i < len; i++)
 		uart_send_byte(str[i]);
-}
-
-void uart_send_ble_message(BLE_Message_t msg) {
-	uart_send_byte(msg.message_type);
-	uart_send_byte(msg.data_byte_one);
-	uart_send_byte(msg.data_byte_two);
 }
 
 /* loads "MSGFAIL" into the TX message buffer that sends every 1s */
@@ -206,6 +206,14 @@ void USART1_IRQHandler() {
 
 	if(USART1->ISR & USART_ISR_RTOF) {
 		// task notification
+	}
+	/* if Transmit Buffer Empty */
+	if(USART1->ISR & USART_ISR_TXE) {
+
+	}
+	/* if Transmit Complete */
+	if(USART1->ISR & USART_ISR_TXC) {
+
 	}
 }
 
