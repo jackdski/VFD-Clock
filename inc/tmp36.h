@@ -8,7 +8,7 @@
 #ifndef TMP36_H_
 #define TMP36_H_
 
-#define TMP_ADC_CHANNEL 	9
+#define TMP_ADC_CHANNEL 	8
 
 void init_tmp(void);
 int8_t tmp_calculate_celsius_temperature(uint32_t mv);

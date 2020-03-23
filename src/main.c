@@ -66,7 +66,7 @@ Settings_t settings = {
 		.brightness_pwm_frequency = 200, // [Hz]
 		.change_speed = Slow,
 		.time_config = Reset,
-
+		.temperature_units = Fahrenheit
 };
 
 volatile System_State_E system_state = Clock;
@@ -129,7 +129,7 @@ void prvInitTask(void *pvParameters) {
 	/* Priority 2 Tasks */
 	BaseType_t tempReturned = xTaskCreate( prvTemperature_Task, "TempSensor", configMINIMAL_STACK_SIZE, NULL, 2, NULL);
 	BaseType_t Lightreturned = xTaskCreate( prvLight_Task, "LightSensor", configMINIMAL_STACK_SIZE, (void *)NULL, 2, &thAutoBrightAdj);
-	BaseType_t BLERXreturned = xTaskCreate( prvBLE_Receive_Task, "BLE RX", 300, (void *)NULL, 2, &thBLErx);
+//	BaseType_t BLERXreturned = xTaskCreate( prvBLE_Receive_Task, "BLE RX", 300, (void *)NULL, 2, &thBLErx);
 	BaseType_t TempButtonreturned = xTaskCreate( prvTemperature_Task, "Temp Button", configMINIMAL_STACK_SIZE, (void *)(Fahrenheit), 2, &thTemperature);
 
 	/* Priority 1 Tasks*/
@@ -147,7 +147,7 @@ void prvInitTask(void *pvParameters) {
 	configASSERT(configReturned == pdPASS);
 	configASSERT(tempReturned == pdPASS);
 	configASSERT(TempButtonreturned == pdPASS);
-	configASSERT(BLERXreturned == pdPASS);
+//	configASSERT(BLERXreturned == pdPASS);
 	configASSERT(Lightreturned == pdPASS);
 	configASSERT(brightnessReturned == pdPASS);
 	configASSERT(errorLightReturned == pdPASS);
@@ -162,10 +162,10 @@ void prvInitTask(void *pvParameters) {
     // size_t free_heap_size = xPortGetFreeHeapSize();		// used to debug how big the heap needs to be
 
     // check HC-10 status to see if it has already connected to a device
-    update_hc_10_status();
-    if(ble_get_hc_10_status() != Connected ) {
-    	vTaskSuspend(thBLEtx);
-    }
+//    update_hc_10_status();
+//    if(ble_get_hc_10_status() != Connected ) {
+//    	vTaskSuspend(thBLEtx);
+//    }
 
     vTaskDelete(thInit);
 }
@@ -212,7 +212,7 @@ void config_peripherals(void) {
 	init_indication_led();
 	init_buttons();
 	init_tmp();
-	init_usart(BLE_USART);
+//	init_usart(BLE_USART);
 	configure_shift_pins();
 	init_pwm();
 	init_adc();

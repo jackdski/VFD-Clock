@@ -123,7 +123,7 @@ void init_rtc(void) {
 
 	/* enable RTC interrupts */
 	NVIC_EnableIRQ(RTC_IRQn);
-	NVIC_SetPriority(RTC_IRQn, 0);
+//	NVIC_SetPriority(RTC_IRQn, 0);
 }
 
 void rtc_disable_alarm(void) {

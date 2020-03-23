@@ -11,7 +11,7 @@
 #include "timers.h"
 
 /*	D E F I N E S   */
-#define TMP_ADC_CHANNEL					9
+#define TMP_ADC_CHANNEL					8
 #define PC3_ADC_CHANNEL		13	// pin PC3 is channel 13
 
 

@@ -27,7 +27,7 @@ volatile unsigned long ulHighFrequencyTimerTicks; 	// for profiling Tasks
 #define configCPU_CLOCK_HZ				( 8000000 )
 #define configTICK_RATE_HZ				( ( TickType_t ) 100 )
 #define configMAX_PRIORITIES			( 5 )
-#define configMINIMAL_STACK_SIZE		( ( unsigned short ) 60 )
+#define configMINIMAL_STACK_SIZE		( ( unsigned short ) 100 )
 #define configTOTAL_HEAP_SIZE			( ( size_t ) ( 6500 ) )
 #define configMAX_TASK_NAME_LEN			( 16 )
 #define configUSE_TRACE_FACILITY		1
@@ -64,7 +64,7 @@ extern void init_timing_stats_timer(void);
 
 /* Low Power Definitions */
 #define configEXPECTED_IDLE_TIME_BEFORE_SLEEP 	5
-#define portSUPPRESS_TICKS_AND_SLEEP( xIdleTime )	vApplicationSleep( xIdleTime )
+//#define portSUPPRESS_TICKS_AND_SLEEP( xIdleTime )	vApplicationSleep( xIdleTime )
 
 /* Normal assert() semantics without relying on the provision of an assert.h
 header file. */
